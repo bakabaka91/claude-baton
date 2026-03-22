@@ -1,6 +1,12 @@
 // Memory types
-export type MemoryType = 'architecture' | 'decision' | 'pattern' | 'gotcha' | 'progress' | 'context';
-export type MemoryStatus = 'active' | 'archived' | 'superseded';
+export type MemoryType =
+  | "architecture"
+  | "decision"
+  | "pattern"
+  | "gotcha"
+  | "progress"
+  | "context";
+export type MemoryStatus = "active" | "archived" | "superseded";
 
 export interface Memory {
   id: string;
@@ -29,8 +35,12 @@ export interface DeadEnd {
 }
 
 // Constraint types
-export type ConstraintType = 'security' | 'performance' | 'compliance' | 'convention';
-export type ConstraintSeverity = 'must' | 'should' | 'prefer';
+export type ConstraintType =
+  | "security"
+  | "performance"
+  | "compliance"
+  | "convention";
+export type ConstraintSeverity = "must" | "should" | "prefer";
 
 export interface Constraint {
   id: string;
@@ -44,7 +54,7 @@ export interface Constraint {
 }
 
 // Goal types
-export type GoalStatus = 'active' | 'completed' | 'paused';
+export type GoalStatus = "active" | "completed" | "paused";
 
 export interface Goal {
   id: string;
@@ -72,7 +82,12 @@ export interface Checkpoint {
 }
 
 // Insight types
-export type InsightCategory = 'decision' | 'workflow' | 'architecture' | 'surprise' | 'cost';
+export type InsightCategory =
+  | "decision"
+  | "workflow"
+  | "architecture"
+  | "surprise"
+  | "cost";
 
 export interface Insight {
   id: string;
@@ -100,38 +115,32 @@ export interface ExtractionLog {
   event_type: string;
   chunks_processed: number;
   memories_extracted: number;
-  created_at: string;
-}
-
-// Extraction cursor for tracking processing position
-export interface ExtractionCursor {
-  session_id: string;
   bytes_processed: number;
-  last_extraction_at: string;
+  created_at: string;
 }
 
 // Discriminated union for extracted items
 export type ExtractedItem =
   | {
-      type: 'memory';
+      type: "memory";
       memory_type: MemoryType;
       content: string;
       tags: string[];
     }
   | {
-      type: 'dead_end';
+      type: "dead_end";
       summary: string;
       approach_tried: string;
       blocker: string;
     }
   | {
-      type: 'constraint';
+      type: "constraint";
       rule: string;
       constraint_type: ConstraintType;
       severity: ConstraintSeverity;
     }
   | {
-      type: 'insight';
+      type: "insight";
       content: string;
       category: InsightCategory;
     };

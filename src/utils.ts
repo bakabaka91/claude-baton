@@ -1,8 +1,6 @@
-import type { Database } from 'sql.js';
-import type { Memory } from './types.js';
-import path from 'path';
-import os from 'os';
-import { mkdirSync, existsSync } from 'fs';
+import type { Database } from "sql.js";
+import type { Memory } from "./types.js";
+import { mkdirSync, existsSync } from "fs";
 
 // --- Jaccard similarity ---
 
@@ -19,14 +17,32 @@ export function jaccardSimilarity(a: string, b: string): number {
   return intersectionSize / unionSize;
 }
 
+// --- LIKE escape helper ---
+
+function escapeLike(value: string): string {
+  return value.replace(/[%_\\]/g, (ch) => `\\${ch}`);
+}
+
 // --- Memory search ---
 
-export function searchMemories(db: Database, query: string, project?: string, type?: string): Memory[] {
-  let sql = "SELECT * FROM memories WHERE status = 'active' AND content LIKE ?";
-  const params: unknown[] = [`%${query}%`];
-  if (project) { sql += ' AND project_path = ?'; params.push(project); }
-  if (type) { sql += ' AND type = ?'; params.push(type); }
-  sql += ' ORDER BY access_count DESC, created_at DESC LIMIT 20';
+export function searchMemories(
+  db: Database,
+  query: string,
+  project?: string,
+  type?: string,
+): Memory[] {
+  let sql =
+    "SELECT * FROM memories WHERE status = 'active' AND content LIKE ? ESCAPE '\\'";
+  const params: unknown[] = [`%${escapeLike(query)}%`];
+  if (project) {
+    sql += " AND project_path = ?";
+    params.push(project);
+  }
+  if (type) {
+    sql += " AND type = ?";
+    params.push(type);
+  }
+  sql += " ORDER BY access_count DESC, created_at DESC LIMIT 20";
 
   const stmt = db.prepare(sql);
   stmt.bind(params);
@@ -46,8 +62,15 @@ export function searchMemories(db: Database, query: string, project?: string, ty
 
 // --- Duplicate check ---
 
-export function checkDuplicate(db: Database, content: string, project: string, threshold: number = 0.6): Memory | null {
-  const stmt = db.prepare("SELECT * FROM memories WHERE project_path = ? AND status = 'active'");
+export function checkDuplicate(
+  db: Database,
+  content: string,
+  project: string,
+  threshold: number = 0.6,
+): Memory | null {
+  const stmt = db.prepare(
+    "SELECT * FROM memories WHERE project_path = ? AND status = 'active'",
+  );
   stmt.bind([project]);
   let bestMatch: Memory | null = null;
   let bestScore = 0;
@@ -71,7 +94,11 @@ export function checkDuplicate(db: Database, content: string, project: string, t
 
 // --- Text chunking ---
 
-export function chunkText(text: string, maxSize: number = 6000, overlap: number = 500): string[] {
+export function chunkText(
+  text: string,
+  maxSize: number = 6000,
+  overlap: number = 500,
+): string[] {
   if (text.length <= maxSize) return [text];
 
   const chunks: string[] = [];
@@ -89,13 +116,15 @@ export function chunkText(text: string, maxSize: number = 6000, overlap: number 
 
 // --- Transcript parsing ---
 
-function extractText(content: string | Array<{ type: string; text?: string }>): string {
-  if (typeof content === 'string') return content;
-  if (!Array.isArray(content)) return '';
+function extractText(
+  content: string | Array<{ type: string; text?: string }>,
+): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
   return content
-    .filter((block) => block.type === 'text')
-    .map((block) => block.text ?? '')
-    .join('\n');
+    .filter((block) => block.type === "text")
+    .map((block) => block.text ?? "")
+    .join("\n");
 }
 
 interface TranscriptLine {
@@ -107,7 +136,7 @@ interface TranscriptLine {
 }
 
 export function parseTranscript(jsonl: string): string {
-  const lines = jsonl.trim().split('\n').filter(Boolean);
+  const lines = jsonl.trim().split("\n").filter(Boolean);
   const summary: string[] = [];
 
   for (const line of lines) {
@@ -118,9 +147,9 @@ export function parseTranscript(jsonl: string): string {
       continue;
     }
 
-    if (parsed.type === 'human' && parsed.message) {
+    if (parsed.type === "human" && parsed.message) {
       summary.push(`USER: ${extractText(parsed.message.content)}`);
-    } else if (parsed.type === 'assistant' && parsed.message) {
+    } else if (parsed.type === "assistant" && parsed.message) {
       const text = extractText(parsed.message.content);
       if (text) summary.push(`ASSISTANT: ${text}`);
       if (parsed.message.tool_calls) {
@@ -131,14 +160,10 @@ export function parseTranscript(jsonl: string): string {
     }
   }
 
-  return summary.join('\n');
+  return summary.join("\n");
 }
 
 // --- Path helpers ---
-
-export function getDbPath(): string {
-  return path.join(os.homedir(), '.memoria-solo', 'store.db');
-}
 
 export function getProjectPath(): string {
   return process.cwd();

@@ -1,46 +1,71 @@
-import { spawn } from 'child_process';
+import { spawn } from "child_process";
 
-export async function callClaude(
+/**
+ * Strip markdown code fences from LLM output.
+ * LLMs frequently wrap JSON in ```json ... ``` blocks.
+ */
+export function stripCodeFences(text: string): string {
+  const trimmed = text.trim();
+  // Match ```<optional language>\n...\n```
+  const match = trimmed.match(/^```(?:\w*)\s*\n?([\s\S]*?)\n?\s*```$/);
+  if (match) {
+    return match[1].trim();
+  }
+  return trimmed;
+}
+
+/**
+ * Internal: spawns claude -p and returns the raw stdout string.
+ * Used by both callClaude and callClaudeJson to avoid double-parse issues.
+ */
+function callClaudeRaw(
   prompt: string,
-  model: string = 'haiku',
+  model: string = "haiku",
   timeout: number = 30000,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const proc = spawn('claude', ['-p', '--model', model, '--output-format', 'json'], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    let settled = false;
 
-    let stdout = '';
-    let stderr = '';
+    const proc = spawn(
+      "claude",
+      ["-p", "--model", model, "--output-format", "json"],
+      {
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
 
-    proc.stdout.on('data', (data: Buffer) => {
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout.on("data", (data: Buffer) => {
       stdout += data.toString();
     });
-    proc.stderr.on('data', (data: Buffer) => {
+    proc.stderr.on("data", (data: Buffer) => {
       stderr += data.toString();
     });
 
     const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
       proc.kill();
       reject(new Error(`claude -p timed out after ${timeout}ms`));
     }, timeout);
 
-    proc.on('close', (code) => {
+    proc.on("close", (code) => {
       clearTimeout(timer);
+      if (settled) return;
+      settled = true;
       if (code !== 0) {
         reject(new Error(`claude -p exited with code ${code}: ${stderr}`));
         return;
       }
-      try {
-        const parsed = JSON.parse(stdout);
-        resolve(parsed.result ?? stdout);
-      } catch {
-        resolve(stdout.trim());
-      }
+      resolve(stdout);
     });
 
-    proc.on('error', (err) => {
+    proc.on("error", (err) => {
       clearTimeout(timer);
+      if (settled) return;
+      settled = true;
       reject(new Error(`Failed to spawn claude: ${err.message}`));
     });
 
@@ -49,15 +74,57 @@ export async function callClaude(
   });
 }
 
+/**
+ * Call claude -p and return the result as a string.
+ * If the raw output is JSON with a `result` field, extracts it.
+ * Always returns a string — non-string result values are JSON.stringified.
+ */
+export async function callClaude(
+  prompt: string,
+  model: string = "haiku",
+  timeout: number = 30000,
+): Promise<string> {
+  const raw = await callClaudeRaw(prompt, model, timeout);
+  const stripped = stripCodeFences(raw);
+  try {
+    const parsed = JSON.parse(stripped);
+    const result = parsed.result ?? stripped;
+    if (typeof result === "string") {
+      return result;
+    }
+    return JSON.stringify(result);
+  } catch {
+    return stripped;
+  }
+}
+
+/**
+ * Call claude -p and parse the response as JSON of type T.
+ * Uses the raw stdout (not the string-extracted callClaude) to avoid double-parse.
+ */
 export async function callClaudeJson<T>(
   prompt: string,
-  model: string = 'haiku',
+  model: string = "haiku",
   timeout: number = 30000,
 ): Promise<T> {
-  const response = await callClaude(prompt, model, timeout);
+  const raw = await callClaudeRaw(prompt, model, timeout);
+  const stripped = stripCodeFences(raw);
   try {
-    return JSON.parse(response) as T;
+    const parsed = JSON.parse(stripped);
+    // If the output has a `result` field, use that as the JSON value
+    const value = parsed.result !== undefined ? parsed.result : parsed;
+    // If value is already an object/array, return it directly
+    if (typeof value === "object" && value !== null) {
+      return value as T;
+    }
+    // If value is a string, try to parse it as JSON
+    if (typeof value === "string") {
+      return JSON.parse(stripCodeFences(value)) as T;
+    }
+    return value as T;
   } catch {
-    throw new Error(`Failed to parse JSON from claude response: ${response.slice(0, 200)}`);
+    throw new Error(
+      `Failed to parse JSON from claude response: ${stripped.slice(0, 200)}`,
+    );
   }
 }
