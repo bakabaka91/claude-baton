@@ -30,10 +30,15 @@ import {
   countAll,
   insertDailySummary,
   incrementAccessCount,
+  getCheckpointsByDate,
+  getInsightsByDate,
+  getMemoriesByDate,
+  getExtractionLogsByDate,
 } from "./store.js";
 import { searchMemories, checkDuplicate, jaccardSimilarity } from "./utils.js";
 import { syncClaudeMd } from "./claude-md.js";
-import { callClaude } from "./llm.js";
+import { callClaude, callClaudeJson } from "./llm.js";
+import { consolidate as runConsolidate } from "./consolidator.js";
 import { readFileSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -700,11 +705,108 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "daily_summary": {
-        return { content: [{ type: "text", text: "Not yet implemented" }] };
+        const date =
+          (args?.date as string) ?? new Date().toISOString().slice(0, 10);
+
+        // Gather activity for the date
+        const checkpoints = getCheckpointsByDate(db, projectPath, date);
+        const insights = getInsightsByDate(db, projectPath, date);
+        const memories = getMemoriesByDate(db, projectPath, date);
+        const extractionLogs = getExtractionLogsByDate(db, projectPath, date);
+
+        if (
+          checkpoints.length === 0 &&
+          insights.length === 0 &&
+          memories.length === 0 &&
+          extractionLogs.length === 0
+        ) {
+          return {
+            content: [{ type: "text", text: `No activity found for ${date}` }],
+          };
+        }
+
+        // Build activity context
+        const activityParts: string[] = [];
+        if (checkpoints.length > 0) {
+          activityParts.push(
+            "CHECKPOINTS:\n" +
+              checkpoints
+                .map(
+                  (cp) =>
+                    `- [${cp.created_at}] Built: ${cp.what_was_built} | State: ${cp.current_state} | Next: ${cp.next_steps}`,
+                )
+                .join("\n"),
+          );
+        }
+        if (insights.length > 0) {
+          activityParts.push(
+            "INSIGHTS:\n" +
+              insights
+                .map(
+                  (ins) =>
+                    `- [${ins.category}] ${ins.content}${ins.context ? ` (${ins.context})` : ""}`,
+                )
+                .join("\n"),
+          );
+        }
+        if (memories.length > 0) {
+          activityParts.push(
+            "MEMORIES CREATED:\n" +
+              memories.map((m) => `- [${m.type}] ${m.content}`).join("\n"),
+          );
+        }
+        if (extractionLogs.length > 0) {
+          activityParts.push(
+            "EXTRACTION LOGS:\n" +
+              extractionLogs
+                .map(
+                  (log) =>
+                    `- [${log.event_type}] ${log.chunks_processed} chunks, ${log.memories_extracted} memories extracted`,
+                )
+                .join("\n"),
+          );
+        }
+
+        const summaryTemplate = readFileSync(
+          path.join(__dirname, "..", "prompts", "daily_summary.txt"),
+          "utf-8",
+        );
+        const summaryPrompt = summaryTemplate
+          .replace("{{DATE}}", date)
+          .replace("{{ACTIVITY}}", activityParts.join("\n\n"));
+
+        const summaryResult = await callClaudeJson<Record<string, unknown>>(
+          summaryPrompt,
+          "haiku",
+          30000,
+        );
+
+        insertDailySummary(db, projectPath, date, summaryResult, dbPath);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(summaryResult, null, 2),
+            },
+          ],
+        };
       }
 
       case "consolidate": {
-        return { content: [{ type: "text", text: "Not yet implemented" }] };
+        const result = await runConsolidate(db, projectPath, {
+          dbPath,
+          model: "haiku",
+          syncMd: true,
+        });
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
       }
 
       case "sync_claude_md": {

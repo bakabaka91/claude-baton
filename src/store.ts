@@ -849,6 +849,76 @@ export function countAll(
   };
 }
 
+// --- Date-range queries ---
+
+export function getCheckpointsByDate(
+  db: Database,
+  projectPath: string,
+  date: string,
+): Checkpoint[] {
+  const stmt = db.prepare(
+    "SELECT * FROM checkpoints WHERE project_path = ? AND created_at LIKE ? || '%' ORDER BY created_at ASC",
+  );
+  stmt.bind([projectPath, date]);
+  const results: Checkpoint[] = [];
+  while (stmt.step()) {
+    results.push(parseCheckpointRow(stmt.getAsObject()));
+  }
+  stmt.free();
+  return results;
+}
+
+export function getInsightsByDate(
+  db: Database,
+  projectPath: string,
+  date: string,
+): Insight[] {
+  const stmt = db.prepare(
+    "SELECT * FROM insights WHERE project_path = ? AND created_at LIKE ? || '%' ORDER BY created_at ASC",
+  );
+  stmt.bind([projectPath, date]);
+  const results: Insight[] = [];
+  while (stmt.step()) {
+    results.push(parseInsightRow(stmt.getAsObject()));
+  }
+  stmt.free();
+  return results;
+}
+
+export function getMemoriesByDate(
+  db: Database,
+  projectPath: string,
+  date: string,
+): Memory[] {
+  const stmt = db.prepare(
+    "SELECT * FROM memories WHERE project_path = ? AND created_at LIKE ? || '%' ORDER BY created_at ASC",
+  );
+  stmt.bind([projectPath, date]);
+  const results: Memory[] = [];
+  while (stmt.step()) {
+    results.push(parseMemoryRow(stmt.getAsObject()));
+  }
+  stmt.free();
+  return results;
+}
+
+export function getExtractionLogsByDate(
+  db: Database,
+  projectPath: string,
+  date: string,
+): ExtractionLog[] {
+  const stmt = db.prepare(
+    "SELECT * FROM extraction_log WHERE project_path = ? AND created_at LIKE ? || '%' ORDER BY created_at ASC",
+  );
+  stmt.bind([projectPath, date]);
+  const results: ExtractionLog[] = [];
+  while (stmt.step()) {
+    results.push(parseExtractionLogRow(stmt.getAsObject()));
+  }
+  stmt.free();
+  return results;
+}
+
 export function listProjects(
   db: Database,
 ): Array<{ project_path: string; memory_count: number }> {
