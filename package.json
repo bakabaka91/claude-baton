@@ -4,8 +4,28 @@
   "description": "Persistent memory MCP server for Claude Code — cross-session knowledge via local SQLite",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
     "memoria-solo": "bin/memoria-solo.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "prompts",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "claude",
+    "claude-code",
+    "memory",
+    "sqlite",
+    "persistent-memory",
+    "ai-tools"
+  ],
+  "engines": {
+    "node": ">=18"
   },
   "scripts": {
     "build": "tsc",
