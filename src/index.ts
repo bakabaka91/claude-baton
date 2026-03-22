@@ -29,9 +29,16 @@ import {
   countByType,
   countAll,
   insertDailySummary,
+  incrementAccessCount,
 } from "./store.js";
 import { searchMemories, checkDuplicate, jaccardSimilarity } from "./utils.js";
 import { syncClaudeMd } from "./claude-md.js";
+import { callClaude } from "./llm.js";
+import { readFileSync } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let db: Database;
 let dbPath: string;
@@ -512,12 +519,68 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "memory_recall": {
-        requireString(
+        const topic = requireString(
           args as Record<string, unknown>,
           "topic",
           "memory_recall",
         );
-        return { content: [{ type: "text", text: "Not yet implemented" }] };
+
+        // Gather relevant memories
+        const memories = searchMemories(db, topic, projectPath);
+        const deadEnds = getDeadEndsByProject(db, projectPath)
+          .filter((de) => !de.resolved)
+          .filter((de) => jaccardSimilarity(topic, de.summary) > 0.2);
+        const constraints = getConstraintsByProject(db, projectPath);
+
+        if (
+          memories.length === 0 &&
+          deadEnds.length === 0 &&
+          constraints.length === 0
+        ) {
+          return {
+            content: [
+              { type: "text", text: "No memories found for this topic." },
+            ],
+          };
+        }
+
+        // Build context for the recall prompt
+        const contextParts: string[] = [];
+        if (memories.length > 0) {
+          contextParts.push(
+            "MEMORIES:\n" +
+              memories.map((m) => `- [${m.type}] ${m.content}`).join("\n"),
+          );
+        }
+        if (deadEnds.length > 0) {
+          contextParts.push(
+            "DEAD ENDS:\n" +
+              deadEnds.map((de) => `- ${de.summary}: ${de.blocker}`).join("\n"),
+          );
+        }
+        if (constraints.length > 0) {
+          contextParts.push(
+            "CONSTRAINTS:\n" +
+              constraints.map((c) => `- [${c.severity}] ${c.rule}`).join("\n"),
+          );
+        }
+
+        const recallTemplate = readFileSync(
+          path.join(__dirname, "..", "prompts", "recall.txt"),
+          "utf-8",
+        );
+        const recallPrompt = recallTemplate
+          .replace("{{TOPIC}}", topic)
+          .replace("{{MEMORIES}}", contextParts.join("\n\n"));
+
+        const synthesis = await callClaude(recallPrompt, "haiku", 30000);
+
+        // Track access for retrieved memories
+        for (const m of memories) {
+          incrementAccessCount(db, m.id, dbPath);
+        }
+
+        return { content: [{ type: "text", text: synthesis }] };
       }
 
       case "add_constraint": {
