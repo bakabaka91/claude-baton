@@ -1,0 +1,27 @@
+{
+  "name": "memoria-solo",
+  "version": "1.0.0",
+  "description": "Persistent memory MCP server for Claude Code — cross-session knowledge via local SQLite",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "memoria-solo": "bin/memoria-solo.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "dev": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "commander": "^13.1.0",
+    "sql.js": "^1.12.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  },
+  "license": "MIT"
+}
