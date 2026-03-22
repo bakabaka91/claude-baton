@@ -346,7 +346,7 @@ export function getGoal(db: Database, id: string): Goal | null {
 }
 
 export function getActiveGoal(db: Database, projectPath: string): Goal | null {
-  const stmt = db.prepare("SELECT * FROM goals WHERE project_path = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1");
+  const stmt = db.prepare("SELECT * FROM goals WHERE project_path = ? AND status = 'active' ORDER BY created_at DESC, rowid DESC LIMIT 1");
   stmt.bind([projectPath]);
   const row = stmt.step() ? stmt.getAsObject() : null;
   stmt.free();
@@ -403,7 +403,7 @@ export function getCheckpoint(db: Database, id: string): Checkpoint | null {
 }
 
 export function getLatestCheckpoint(db: Database, projectPath: string): Checkpoint | null {
-  const stmt = db.prepare('SELECT * FROM checkpoints WHERE project_path = ? ORDER BY created_at DESC LIMIT 1');
+  const stmt = db.prepare('SELECT * FROM checkpoints WHERE project_path = ? ORDER BY created_at DESC, rowid DESC LIMIT 1');
   stmt.bind([projectPath]);
   const row = stmt.step() ? stmt.getAsObject() : null;
   stmt.free();
@@ -511,7 +511,7 @@ export function getLastExtraction(db: Database, projectPath: string, sessionId?:
   let sql = 'SELECT * FROM extraction_log WHERE project_path = ?';
   const params: unknown[] = [projectPath];
   if (sessionId) { sql += ' AND session_id = ?'; params.push(sessionId); }
-  sql += ' ORDER BY created_at DESC LIMIT 1';
+  sql += ' ORDER BY created_at DESC, rowid DESC LIMIT 1';
   const stmt = db.prepare(sql);
   stmt.bind(params);
   const row = stmt.step() ? stmt.getAsObject() : null;
