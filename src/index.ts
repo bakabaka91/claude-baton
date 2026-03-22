@@ -18,6 +18,7 @@ import {
   insertDailySummary,
 } from './store.js';
 import { searchMemories, checkDuplicate, jaccardSimilarity } from './utils.js';
+import { syncClaudeMd } from './claude-md.js';
 
 let db: Database;
 let dbPath: string;
@@ -340,7 +341,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'sync_claude_md': {
-        return { content: [{ type: 'text', text: 'Not yet implemented' }] };
+        const result = syncClaudeMd(db, projectPath);
+        return { content: [{ type: 'text', text: result }] };
       }
 
       default:
