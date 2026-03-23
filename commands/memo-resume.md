@@ -54,11 +54,15 @@ Resuming from checkpoint: [timestamp]
 
 ### Uncommitted Work
 [checkpoint uncommitted_files vs current git status]
-[Flag differences]
+[Flag if they differ -- someone may have stashed or committed manually]
+
+### Commits From Last Session
+[git_snapshot from checkpoint -- these are the commits made during that session]
+[If empty: "No commits were made in the last session"]
 
 ### Git Activity Since Checkpoint
-[Diff checkpoint git_snapshot vs current git log --oneline -10]
-[Show only new commits]
+[Any NEW commits since the checkpoint timestamp that were NOT in git_snapshot]
+[If none: "No new commits since checkpoint"]
 
 ### Insights Since Checkpoint
 [Insights from get_insights tool, time-ordered]
