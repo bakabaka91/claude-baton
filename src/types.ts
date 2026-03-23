@@ -78,6 +78,7 @@ export interface Checkpoint {
   decisions_made: string | null;
   blockers: string | null;
   uncommitted_files: string[];
+  git_snapshot: string | null;
   created_at: string;
 }
 

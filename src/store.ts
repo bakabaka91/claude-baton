@@ -117,6 +117,7 @@ export function initSchema(db: Database): void {
       decisions_made TEXT,
       blockers TEXT,
       uncommitted_files TEXT DEFAULT '[]',
+      git_snapshot TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_checkpoints_project ON checkpoints(project_path);
@@ -155,6 +156,13 @@ export function initSchema(db: Database): void {
     CREATE INDEX IF NOT EXISTS idx_extraction_log_project ON extraction_log(project_path);
     CREATE INDEX IF NOT EXISTS idx_extraction_log_session ON extraction_log(session_id);
   `);
+
+  // Migration: add git_snapshot column for existing databases
+  try {
+    db.exec("ALTER TABLE checkpoints ADD COLUMN git_snapshot TEXT");
+  } catch {
+    // Column already exists — expected for new databases or already-migrated ones
+  }
 }
 
 // --- Memories CRUD ---
@@ -492,13 +500,14 @@ export function insertCheckpoint(
     decisionsMade?: string;
     blockers?: string;
     uncommittedFiles?: string[];
+    gitSnapshot?: string;
   },
   dbPath?: string,
 ): string {
   const id = crypto.randomUUID();
   db.run(
-    `INSERT INTO checkpoints (id, project_path, session_id, branch, current_state, what_was_built, next_steps, decisions_made, blockers, uncommitted_files, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO checkpoints (id, project_path, session_id, branch, current_state, what_was_built, next_steps, decisions_made, blockers, uncommitted_files, git_snapshot, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       projectPath,
@@ -510,6 +519,7 @@ export function insertCheckpoint(
       opts?.decisionsMade ?? null,
       opts?.blockers ?? null,
       JSON.stringify(opts?.uncommittedFiles ?? []),
+      opts?.gitSnapshot ?? null,
       new Date().toISOString(),
     ],
   );
@@ -544,6 +554,7 @@ function parseCheckpointRow(row: Record<string, unknown>): Checkpoint {
   return {
     ...row,
     uncommitted_files: JSON.parse(row.uncommitted_files as string),
+    git_snapshot: (row.git_snapshot as string | null) ?? null,
   } as Checkpoint;
 }
 
@@ -597,6 +608,23 @@ export function getInsightsByProject(
   sql += " ORDER BY created_at DESC";
   const stmt = db.prepare(sql);
   stmt.bind(params);
+  const results: Insight[] = [];
+  while (stmt.step()) {
+    results.push(parseInsightRow(stmt.getAsObject()));
+  }
+  stmt.free();
+  return results;
+}
+
+export function getInsightsSince(
+  db: Database,
+  projectPath: string,
+  sinceTimestamp: string,
+): Insight[] {
+  const stmt = db.prepare(
+    "SELECT * FROM insights WHERE project_path = ? AND created_at >= ? ORDER BY created_at ASC",
+  );
+  stmt.bind([projectPath, sinceTimestamp]);
   const results: Insight[] = [];
   while (stmt.step()) {
     results.push(parseInsightRow(stmt.getAsObject()));

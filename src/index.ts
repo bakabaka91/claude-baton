@@ -25,6 +25,8 @@ import {
   updateGoalStatus,
   insertCheckpoint,
   getLatestCheckpoint,
+  getCheckpoint,
+  getInsightsSince,
   insertInsight,
   countByType,
   countAll,
@@ -319,6 +321,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           next_steps: { type: "string" },
           decisions: { type: "string" },
           blockers: { type: "string" },
+          branch: {
+            type: "string",
+            description: "Current git branch name",
+          },
+          uncommitted_files: {
+            type: "array",
+            items: { type: "string" },
+            description: "Output of git status --short",
+          },
+          git_snapshot: {
+            type: "string",
+            description: "Recent commits, e.g. output of git log --oneline -10",
+          },
           project: {
             type: "string",
             description: "Project path (defaults to cwd)",
@@ -329,10 +344,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "get_checkpoint",
-      description: "Retrieve latest checkpoint for resumption",
+      description: "Retrieve a checkpoint by ID, or the latest for the project",
       inputSchema: {
         type: "object" as const,
         properties: {
+          id: {
+            type: "string",
+            description:
+              "Checkpoint ID to fetch; if omitted, returns the latest",
+          },
           project: {
             type: "string",
             description: "Project path (defaults to cwd)",
@@ -358,6 +378,45 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
         },
         required: ["content"],
+      },
+    },
+    {
+      name: "get_insights",
+      description: "Fetch insights filtered by time or date",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          since: {
+            type: "string",
+            description:
+              "ISO timestamp — returns insights created at or after this time",
+          },
+          date: {
+            type: "string",
+            description: "YYYY-MM-DD — returns insights for that date",
+          },
+          project: {
+            type: "string",
+            description: "Project path (defaults to cwd)",
+          },
+        },
+      },
+    },
+    {
+      name: "list_checkpoints",
+      description: "List all checkpoints for a date",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          date: {
+            type: "string",
+            description: "YYYY-MM-DD (defaults to today)",
+          },
+          project: {
+            type: "string",
+            description: "Project path (defaults to cwd)",
+          },
+        },
       },
     },
     {
@@ -673,8 +732,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           whatWasBuilt,
           nextSteps,
           {
+            branch: a?.branch as string | undefined,
             decisionsMade: a?.decisions as string | undefined,
             blockers: a?.blockers as string | undefined,
+            uncommittedFiles: a?.uncommitted_files as string[] | undefined,
+            gitSnapshot: a?.git_snapshot as string | undefined,
           },
           dbPath,
         );
@@ -682,7 +744,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_checkpoint": {
-        const cp = getLatestCheckpoint(db, projectPath);
+        const cpId = args?.id as string | undefined;
+        const cp = cpId
+          ? getCheckpoint(db, cpId)
+          : getLatestCheckpoint(db, projectPath);
         if (!cp)
           return { content: [{ type: "text", text: "No checkpoint found" }] };
         return {
@@ -702,6 +767,37 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           dbPath,
         );
         return { content: [{ type: "text", text: `Insight saved: ${id}` }] };
+      }
+
+      case "get_insights": {
+        const since = args?.since as string | undefined;
+        const insightDate = args?.date as string | undefined;
+        let insights;
+        if (since) {
+          insights = getInsightsSince(db, projectPath, since);
+        } else {
+          const d = insightDate ?? new Date().toISOString().slice(0, 10);
+          insights = getInsightsByDate(db, projectPath, d);
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(insights, null, 2) }],
+        };
+      }
+
+      case "list_checkpoints": {
+        const cpDate =
+          (args?.date as string) ?? new Date().toISOString().slice(0, 10);
+        const cps = getCheckpointsByDate(db, projectPath, cpDate);
+        const summary = cps.map((cp) => ({
+          id: cp.id,
+          created_at: cp.created_at,
+          what_was_built: cp.what_was_built,
+          branch: cp.branch,
+          current_state: cp.current_state,
+        }));
+        return {
+          content: [{ type: "text", text: JSON.stringify(summary, null, 2) }],
+        };
       }
 
       case "daily_summary": {
