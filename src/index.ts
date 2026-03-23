@@ -41,7 +41,7 @@ import { searchMemories, checkDuplicate, jaccardSimilarity } from "./utils.js";
 import { syncClaudeMd } from "./claude-md.js";
 import { callClaude, callClaudeJson } from "./llm.js";
 import { consolidate as runConsolidate } from "./consolidator.js";
-import { readFileSync } from "fs";
+import { readFileSync, statSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -49,6 +49,20 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let db: Database;
 let dbPath: string;
+let lastDbMtime = 0;
+
+/** Reload the database from disk if the file has been modified externally. */
+async function reloadDbIfChanged(): Promise<void> {
+  try {
+    const mtimeMs = statSync(dbPath).mtimeMs;
+    if (mtimeMs > lastDbMtime) {
+      db = await initDatabase(dbPath);
+      lastDbMtime = mtimeMs;
+    }
+  } catch {
+    // File doesn't exist or stat failed — keep current db as-is
+  }
+}
 
 /** Stable fallback session ID — generated once at module load, not per call. */
 const fallbackSessionId = `session-${Date.now()}`;
@@ -468,6 +482,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   const projectPath = (args?.project as string) ?? process.cwd();
+
+  await reloadDbIfChanged();
 
   try {
     switch (name) {
@@ -929,6 +945,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   dbPath = getDefaultDbPath();
   db = await initDatabase(dbPath);
+  try {
+    lastDbMtime = statSync(dbPath).mtimeMs;
+  } catch {
+    // File may not exist yet if initDatabase created it in-memory only
+  }
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
