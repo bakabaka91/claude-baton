@@ -1,6 +1,6 @@
 ## Summary
 
-What does this PR do?
+What does this PR do and why?
 
 ## Changes
 
@@ -9,9 +9,12 @@ What does this PR do?
 ## Testing
 
 - [ ] `npm run build` passes
-- [ ] `npm test` passes (181+ tests)
+- [ ] `npm test` passes (286+ tests)
+- [ ] `npm run format:check` passes
 - [ ] New tests added for new functionality
 
-## Notes
+## Checklist
 
-Any additional context for reviewers.
+- [ ] Follows agent routing (see CLAUDE.md — each domain has an owning agent)
+- [ ] No new dependencies added (4 dependency max — see CLAUDE.md)
+- [ ] No API keys or secrets introduced

@@ -12,28 +12,19 @@ npm run build
 npm test
 ```
 
-## Project structure
-
-- `src/index.ts` — MCP server entry, tool definitions
-- `src/types.ts` — TypeScript interfaces
-- `src/store.ts` — SQLite operations (CRUD, search, dedup)
-- `src/extractor.ts` — Hook handler: transcript to memories
-- `src/consolidator.ts` — Merge/prune/decay logic
-- `src/claude-md.ts` — CLAUDE.md managed block sync
-- `src/llm.ts` — `claude -p` wrapper
-- `src/cli.ts` — CLI commands and setup
-- `src/utils.ts` — Cursor tracking, chunking, similarity
-- `prompts/` — Extraction, consolidation, recall templates
-- `commands/` — Slash command files
-- `tests/` — Test suite (vitest)
-
-## Making changes
+## Development workflow
 
 1. Fork the repo and create a branch from `main`
 2. Make your changes
-3. Run `npm run build` to check for type errors
-4. Run `npm test` to ensure all 181+ tests pass
-5. Open a pull request
+3. Run all checks before pushing:
+   ```bash
+   npm run build          # must compile
+   npm test               # must pass (286+ tests)
+   npm run format:check   # must pass
+   ```
+4. Open a pull request against `main`
+5. CI will run automatically — build, test, and format checks must all pass
+6. Wait for review from a maintainer
 
 ## Constraints
 
@@ -45,6 +36,14 @@ These are non-negotiable project rules:
 - **stdio transport** — standard MCP, not SSE
 - **Single SQLite DB** — `~/.memoria-solo/store.db`, never per-project files
 
+## Code style
+
+- TypeScript with strict mode
+- ES modules (`import`/`export`)
+- Format with Prettier: `npm run format`
+- No hardcoded versions — the CLI reads from `package.json` at runtime
+- Add tests for new functionality
+
 ## Reporting bugs
 
 Open an issue at https://github.com/bakabaka91/memoria-solo/issues with:
@@ -53,9 +52,6 @@ Open an issue at https://github.com/bakabaka91/memoria-solo/issues with:
 - Expected vs actual behavior
 - Node.js version and OS
 
-## Code style
+## Releases
 
-- TypeScript with strict mode
-- ES modules (`import`/`export`)
-- Keep functions focused and small
-- Add tests for new functionality
+Only maintainers publish to npm. Contributors should not bump versions.
