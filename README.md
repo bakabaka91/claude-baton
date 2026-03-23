@@ -70,6 +70,8 @@ memoria-solo projects            # list tracked projects
 memoria-solo export [project]    # export as JSON
 memoria-solo import <file>       # import from JSON
 memoria-solo reset [project]     # clear memories (with confirmation)
+memoria-solo uninstall           # remove hooks, commands, and database
+memoria-solo uninstall --keep-data  # uninstall but preserve the database
 ```
 
 ### Slash Commands

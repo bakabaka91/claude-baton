@@ -46,6 +46,22 @@ vi.mock("fs", async () => {
     copyFileSync: vi.fn(),
     readdirSync: vi.fn().mockReturnValue([]),
     mkdirSync: vi.fn(),
+    unlinkSync: vi.fn(),
+    rmSync: vi.fn(),
+  };
+});
+
+// Mock os to return a consistent test home path
+vi.mock("os", () => {
+  return {
+    default: {
+      homedir: vi.fn().mockReturnValue("/mock/home"),
+      platform: vi.fn().mockReturnValue("darwin"),
+      tmpdir: vi.fn().mockReturnValue("/tmp"),
+    },
+    homedir: vi.fn().mockReturnValue("/mock/home"),
+    platform: vi.fn().mockReturnValue("darwin"),
+    tmpdir: vi.fn().mockReturnValue("/tmp"),
   };
 });
 
@@ -65,9 +81,12 @@ vi.mock("../src/store.js", async () => {
 import {
   existsSync,
   readFileSync,
+  writeFileSync,
   statSync,
   copyFileSync,
   readdirSync,
+  unlinkSync,
+  rmSync,
 } from "fs";
 import {
   initDatabase as mockInitDb,
@@ -81,15 +100,20 @@ import {
   handleExport,
   handleImport,
   handleReset,
+  handleUninstall,
   installCommands,
 } from "../src/cli.js";
+import os from "os";
 
 const mockExistsSync = vi.mocked(existsSync);
 const mockInitDatabase = vi.mocked(mockInitDb);
 const mockReadFileSync = vi.mocked(readFileSync);
+const mockWriteFileSync = vi.mocked(writeFileSync);
 const mockStatSync = vi.mocked(statSync);
 const mockCopyFileSync = vi.mocked(copyFileSync);
 const mockReaddirSync = vi.mocked(readdirSync);
+const mockUnlinkSync = vi.mocked(unlinkSync);
+const mockRmSync = vi.mocked(rmSync);
 
 let db: Database;
 const PROJECT = "/test/project";
@@ -102,6 +126,7 @@ beforeEach(async () => {
   mockInitDatabase.mockResolvedValue(db);
   mockExistsSync.mockReturnValue(true);
   mockStatSync.mockReturnValue({ size: 4096 } as ReturnType<typeof statSync>);
+  vi.mocked(os.homedir).mockReturnValue("/mock/home");
 });
 
 afterEach(() => {
@@ -670,6 +695,300 @@ describe("installCommands", () => {
     const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
     expect(output).toContain("Skipping memo-checkpoint");
     expect(output).toContain("Installed /memo-resume");
+
+    errorSpy.mockRestore();
+  });
+});
+
+// --- handleUninstall ---
+
+describe("handleUninstall", () => {
+  const settingsPath = "/mock/home/.claude/settings.json";
+  const commandsDir = "/mock/home/.claude/commands";
+
+  it("removes hooks from settings.json that contain 'memoria-solo'", async () => {
+    const settings = {
+      hooks: {
+        Stop: [
+          {
+            matcher: "",
+            hooks: [
+              { type: "command", command: "memoria-solo extract --event stop" },
+            ],
+          },
+        ],
+        PreCompact: [
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command: "memoria-solo extract --event precompact",
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return true;
+      if (p === commandsDir) return false;
+      if (p === "/mock/home/.memoria-solo") return false;
+      return false;
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify(settings));
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleUninstall({ keepData: true });
+
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      settingsPath,
+      expect.any(String),
+    );
+    const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
+    expect(written.hooks).toBeUndefined();
+
+    errorSpy.mockRestore();
+  });
+
+  it("preserves non-memoria-solo hooks in settings.json", async () => {
+    const settings = {
+      hooks: {
+        Stop: [
+          {
+            matcher: "",
+            hooks: [
+              { type: "command", command: "memoria-solo extract --event stop" },
+            ],
+          },
+          {
+            matcher: "",
+            hooks: [{ type: "command", command: "other-tool do-stuff" }],
+          },
+        ],
+        SubAgentTurnEnd: [
+          {
+            matcher: "",
+            hooks: [{ type: "command", command: "some-other-hook run" }],
+          },
+        ],
+      },
+    };
+
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return true;
+      if (p === commandsDir) return false;
+      if (p === "/mock/home/.memoria-solo") return false;
+      return false;
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify(settings));
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleUninstall({ keepData: true });
+
+    const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
+    // Stop should still have the other-tool entry
+    expect(written.hooks.Stop).toHaveLength(1);
+    expect(written.hooks.Stop[0].hooks[0].command).toBe("other-tool do-stuff");
+    // SubAgentTurnEnd should be preserved entirely
+    expect(written.hooks.SubAgentTurnEnd).toHaveLength(1);
+    expect(written.hooks.SubAgentTurnEnd[0].hooks[0].command).toBe(
+      "some-other-hook run",
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  it("removes memo-*.md command files", async () => {
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return false;
+      if (p === commandsDir) return true;
+      if (p === "/mock/home/.memoria-solo") return false;
+      return false;
+    });
+    mockReaddirSync.mockReturnValue([
+      "memo-checkpoint.md",
+      "memo-resume.md",
+      "memo-insight.md",
+      "memo-eod.md",
+    ] as unknown as ReturnType<typeof readdirSync>);
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleUninstall({ keepData: true });
+
+    expect(mockUnlinkSync).toHaveBeenCalledTimes(4);
+    expect(mockUnlinkSync).toHaveBeenCalledWith(
+      `${commandsDir}/memo-checkpoint.md`,
+    );
+    expect(mockUnlinkSync).toHaveBeenCalledWith(
+      `${commandsDir}/memo-resume.md`,
+    );
+    expect(mockUnlinkSync).toHaveBeenCalledWith(
+      `${commandsDir}/memo-insight.md`,
+    );
+    expect(mockUnlinkSync).toHaveBeenCalledWith(`${commandsDir}/memo-eod.md`);
+
+    const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(output).toContain("Removed 4 slash commands");
+
+    errorSpy.mockRestore();
+  });
+
+  it("does not remove non-memo command files", async () => {
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return false;
+      if (p === commandsDir) return true;
+      if (p === "/mock/home/.memoria-solo") return false;
+      return false;
+    });
+    mockReaddirSync.mockReturnValue([
+      "memo-checkpoint.md",
+      "other-command.md",
+      "review-pr.md",
+      "memo-eod.md",
+    ] as unknown as ReturnType<typeof readdirSync>);
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleUninstall({ keepData: true });
+
+    // Only the memo-* files should be removed
+    expect(mockUnlinkSync).toHaveBeenCalledTimes(2);
+    expect(mockUnlinkSync).toHaveBeenCalledWith(
+      `${commandsDir}/memo-checkpoint.md`,
+    );
+    expect(mockUnlinkSync).toHaveBeenCalledWith(`${commandsDir}/memo-eod.md`);
+
+    const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(output).toContain("Removed 2 slash commands");
+
+    errorSpy.mockRestore();
+  });
+
+  it("deletes database directory with --force", async () => {
+    const dbDir = "/mock/home/.memoria-solo";
+
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return false;
+      if (p === commandsDir) return false;
+      if (p === dbDir) return true;
+      return false;
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleUninstall({ force: true });
+
+    expect(mockRmSync).toHaveBeenCalledWith(dbDir, { recursive: true });
+
+    const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(output).toContain("Deleted database");
+
+    errorSpy.mockRestore();
+  });
+
+  it("keeps database with --keep-data", async () => {
+    const dbDir = "/mock/home/.memoria-solo";
+
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return false;
+      if (p === commandsDir) return false;
+      if (p === dbDir) return true;
+      return false;
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleUninstall({ keepData: true });
+
+    expect(mockRmSync).not.toHaveBeenCalled();
+
+    const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(output).toContain("Kept database (--keep-data)");
+
+    errorSpy.mockRestore();
+  });
+
+  it("handles missing settings.json gracefully", async () => {
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return false;
+      if (p === commandsDir) return false;
+      if (p === "/mock/home/.memoria-solo") return false;
+      return false;
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleUninstall({ keepData: true });
+
+    // Should not attempt to read or write settings.json
+    expect(mockReadFileSync).not.toHaveBeenCalled();
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+
+    // Should still complete successfully
+    const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(output).toContain("Uninstall complete");
+
+    errorSpy.mockRestore();
+  });
+
+  it("handles missing commands directory gracefully", async () => {
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return false;
+      if (p === commandsDir) return false;
+      if (p === "/mock/home/.memoria-solo") return false;
+      return false;
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleUninstall({ keepData: true });
+
+    // Should not try to read or unlink files from missing dir
+    expect(mockUnlinkSync).not.toHaveBeenCalled();
+
+    const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(output).toContain("Removed 0 slash commands");
+
+    errorSpy.mockRestore();
+  });
+
+  it("cleans up empty hooks object from settings", async () => {
+    const settings = {
+      someOtherSetting: true,
+      hooks: {
+        Stop: [
+          {
+            matcher: "",
+            hooks: [
+              { type: "command", command: "memoria-solo extract --event stop" },
+            ],
+          },
+        ],
+      },
+    };
+
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return true;
+      if (p === commandsDir) return false;
+      if (p === "/mock/home/.memoria-solo") return false;
+      return false;
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify(settings));
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleUninstall({ keepData: true });
+
+    const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
+    // hooks key should be removed entirely when empty
+    expect(written.hooks).toBeUndefined();
+    // Other settings should be preserved
+    expect(written.someOtherSetting).toBe(true);
 
     errorSpy.mockRestore();
   });

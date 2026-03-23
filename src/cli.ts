@@ -6,6 +6,8 @@ import {
   existsSync,
   statSync,
   readdirSync,
+  unlinkSync,
+  rmSync,
 } from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
@@ -135,6 +137,88 @@ export function installCommands(): { installed: number; skipped: number } {
   }
 
   return { installed, skipped };
+}
+
+// --- Uninstall command ---
+
+export async function handleUninstall(opts: {
+  keepData?: boolean;
+  force?: boolean;
+}): Promise<void> {
+  // 1. Remove hooks from settings.json
+  const settingsPath = path.join(os.homedir(), ".claude", "settings.json");
+  if (existsSync(settingsPath)) {
+    try {
+      const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+      if (settings.hooks && typeof settings.hooks === "object") {
+        for (const event of Object.keys(settings.hooks)) {
+          const entries = settings.hooks[event];
+          if (Array.isArray(entries)) {
+            settings.hooks[event] = entries.filter(
+              (entry: Record<string, unknown>) => {
+                const hooks = entry.hooks as
+                  | Array<Record<string, unknown>>
+                  | undefined;
+                if (!Array.isArray(hooks)) return true;
+                return !hooks.some(
+                  (h) =>
+                    typeof h.command === "string" &&
+                    h.command.includes("memoria-solo"),
+                );
+              },
+            );
+            if (settings.hooks[event].length === 0) {
+              delete settings.hooks[event];
+            }
+          }
+        }
+        if (Object.keys(settings.hooks).length === 0) {
+          delete settings.hooks;
+        }
+        writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+        console.error("  Removed hooks from settings.json");
+      }
+    } catch {
+      console.error("  Warning: could not parse settings.json");
+    }
+  }
+
+  // 2. Remove memo-* command files
+  const commandsDir = path.join(os.homedir(), ".claude", "commands");
+  let commandsRemoved = 0;
+  if (existsSync(commandsDir)) {
+    const files = readdirSync(commandsDir).filter(
+      (f) => f.startsWith("memo-") && f.endsWith(".md"),
+    );
+    for (const file of files) {
+      unlinkSync(path.join(commandsDir, file));
+      commandsRemoved++;
+    }
+  }
+  console.error(`  Removed ${commandsRemoved} slash commands`);
+
+  // 3. Optionally remove database
+  const dbDir = path.join(os.homedir(), ".memoria-solo");
+  if (!opts.keepData && existsSync(dbDir)) {
+    if (!opts.force) {
+      const answer = await askConfirmation(
+        "  Delete database (~/.memoria-solo)? This cannot be undone. [y/N] ",
+      );
+      if (answer.toLowerCase() !== "y") {
+        console.error("  Kept database.");
+        console.error("Uninstall complete (database preserved).");
+        return;
+      }
+    }
+    rmSync(dbDir, { recursive: true });
+    console.error("  Deleted database");
+  } else if (opts.keepData) {
+    console.error("  Kept database (--keep-data)");
+  }
+
+  console.error(
+    "Uninstall complete. Run 'npm uninstall -g memoria-solo' to remove the binary.",
+  );
 }
 
 // --- Extract command ---
@@ -470,6 +554,13 @@ program
   .command("setup")
   .description("Install hooks and initialize database")
   .action(() => handleSetup());
+
+program
+  .command("uninstall")
+  .description("Remove hooks, slash commands, and optionally the database")
+  .option("--keep-data", "Keep the database (~/.memoria-solo)")
+  .option("--force", "Skip confirmation for database deletion")
+  .action((opts) => handleUninstall(opts));
 
 program
   .command("extract")
