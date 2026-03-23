@@ -70,9 +70,36 @@ memoria-solo projects            # list tracked projects
 memoria-solo export [project]    # export as JSON
 memoria-solo import <file>       # import from JSON
 memoria-solo reset [project]     # clear memories (with confirmation)
-memoria-solo uninstall           # remove hooks, commands, and database
+memoria-solo uninstall           # remove hooks, commands, MCP server, and database
 memoria-solo uninstall --keep-data  # uninstall but preserve the database
 ```
+
+### Uninstall
+
+To completely remove memoria-solo:
+
+```bash
+# Step 1: Remove hooks, MCP server, slash commands, and database
+memoria-solo uninstall
+
+# Step 2: Remove the binary
+npm uninstall -g memoria-solo
+```
+
+To uninstall but keep your memories for later:
+
+```bash
+memoria-solo uninstall --keep-data
+npm uninstall -g memoria-solo
+```
+
+This removes:
+- Hooks from `~/.claude/settings.json` (Stop, PreCompact, SessionEnd)
+- MCP server registration from `~/.claude/settings.json`
+- Slash commands from `~/.claude/commands/` (memo-checkpoint, memo-resume, memo-insight, memo-eod)
+- Database at `~/.memoria-solo/store.db` (unless `--keep-data`)
+
+No other files or settings are modified.
 
 ### Slash Commands
 
