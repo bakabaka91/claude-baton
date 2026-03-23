@@ -108,8 +108,8 @@ export async function handleSetup(): Promise<void> {
   // Register MCP server
   const mcpServers = (settings.mcpServers ?? {}) as Record<string, unknown>;
   mcpServers["memoria-solo"] = {
-    command: "memoria-solo",
-    args: ["serve"],
+    command: "npx",
+    args: ["-y", "memoria-solo", "serve"],
   };
   settings.mcpServers = mcpServers;
 
@@ -584,7 +584,14 @@ const program = new Command();
 program
   .name("memoria-solo")
   .description("Persistent memory for Claude Code sessions")
-  .version("1.0.0");
+  .version("1.0.2");
+
+program
+  .command("serve")
+  .description("Start the MCP server (stdio transport)")
+  .action(async () => {
+    await import("./index.js");
+  });
 
 program
   .command("setup")
