@@ -47,6 +47,12 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/** Minimum Jaccard similarity to flag a dead end as matching an approach. */
+const DEAD_END_MATCH_THRESHOLD = 0.3;
+
+/** Minimum Jaccard similarity to include a dead end in recall context. */
+const DEAD_END_RECALL_THRESHOLD = 0.2;
+
 let db: Database;
 let dbPath: string;
 let lastDbMtime = 0;
@@ -578,7 +584,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ...de,
             similarity: jaccardSimilarity(approach, de.approach_tried),
           }))
-          .filter((de) => de.similarity > 0.3)
+          .filter((de) => de.similarity > DEAD_END_MATCH_THRESHOLD)
           .sort((a, b) => b.similarity - a.similarity);
 
         if (matches.length === 0) {
@@ -609,7 +615,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const memories = searchMemories(db, topic, projectPath);
         const deadEnds = getDeadEndsByProject(db, projectPath)
           .filter((de) => !de.resolved)
-          .filter((de) => jaccardSimilarity(topic, de.summary) > 0.2);
+          .filter(
+            (de) =>
+              jaccardSimilarity(topic, de.summary) > DEAD_END_RECALL_THRESHOLD,
+          );
         const constraints = getConstraintsByProject(db, projectPath);
 
         if (

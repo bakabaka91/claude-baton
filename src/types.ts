@@ -1,4 +1,4 @@
-// Memory types
+/** Classification of memory content. */
 export type MemoryType =
   | "architecture"
   | "decision"
@@ -6,8 +6,10 @@ export type MemoryType =
   | "gotcha"
   | "progress"
   | "context";
+/** Lifecycle status of a memory record. */
 export type MemoryStatus = "active" | "archived" | "superseded";
 
+/** A stored memory extracted from a Claude Code session. */
 export interface Memory {
   id: string;
   project_path: string;
@@ -22,7 +24,7 @@ export interface Memory {
   updated_at: string;
 }
 
-// Dead end types
+/** A failed approach recorded to avoid repeating mistakes. */
 export interface DeadEnd {
   id: string;
   project_path: string;
@@ -34,14 +36,16 @@ export interface DeadEnd {
   created_at: string;
 }
 
-// Constraint types
+/** Category of a project constraint. */
 export type ConstraintType =
   | "security"
   | "performance"
   | "compliance"
   | "convention";
+/** How strictly a constraint must be followed. */
 export type ConstraintSeverity = "must" | "should" | "prefer";
 
+/** A project rule or invariant that must be respected. */
 export interface Constraint {
   id: string;
   project_path: string;
@@ -53,9 +57,10 @@ export interface Constraint {
   created_at: string;
 }
 
-// Goal types
+/** Tracking status of a goal. */
 export type GoalStatus = "active" | "completed" | "paused";
 
+/** A high-level objective with measurable completion criteria. */
 export interface Goal {
   id: string;
   project_path: string;
@@ -66,7 +71,7 @@ export interface Goal {
   updated_at: string;
 }
 
-// Checkpoint types
+/** A snapshot of session state saved before /compact or /clear. */
 export interface Checkpoint {
   id: string;
   project_path: string;
@@ -82,7 +87,7 @@ export interface Checkpoint {
   created_at: string;
 }
 
-// Insight types
+/** Category of a captured insight. */
 export type InsightCategory =
   | "decision"
   | "workflow"
@@ -90,6 +95,7 @@ export type InsightCategory =
   | "surprise"
   | "cost";
 
+/** A real-time observation or lesson learned during development. */
 export interface Insight {
   id: string;
   project_path: string;
@@ -99,7 +105,7 @@ export interface Insight {
   created_at: string;
 }
 
-// Daily summary types
+/** An aggregated end-of-day summary of project activity. */
 export interface DailySummary {
   id: string;
   project_path: string;
@@ -108,7 +114,7 @@ export interface DailySummary {
   created_at: string;
 }
 
-// Extraction log types
+/** A log entry recording a memory extraction run against a session transcript. */
 export interface ExtractionLog {
   id: string;
   project_path: string;
@@ -120,7 +126,7 @@ export interface ExtractionLog {
   created_at: string;
 }
 
-// Discriminated union for extracted items
+/** Discriminated union of items extracted from a session transcript. */
 export type ExtractedItem =
   | {
       type: "memory";
