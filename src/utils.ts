@@ -31,9 +31,13 @@ export function searchMemories(
   project?: string,
   type?: string,
 ): Memory[] {
-  let sql =
-    "SELECT * FROM memories WHERE status = 'active' AND content LIKE ? ESCAPE '\\'";
-  const params: unknown[] = [`%${escapeLike(query)}%`];
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 0);
+  const likeClauses = words.map(() => "content LIKE ? ESCAPE '\\'");
+  let sql = `SELECT * FROM memories WHERE status = 'active' AND (${likeClauses.join(" OR ")})`;
+  const params: unknown[] = words.map((w) => `%${escapeLike(w)}%`);
   if (project) {
     sql += " AND project_path = ?";
     params.push(project);
