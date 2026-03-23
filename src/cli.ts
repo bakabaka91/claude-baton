@@ -1,5 +1,13 @@
 import { Command } from "commander";
-import { readFileSync, writeFileSync, existsSync, statSync } from "fs";
+import {
+  readFileSync,
+  writeFileSync,
+  copyFileSync,
+  existsSync,
+  statSync,
+  readdirSync,
+} from "fs";
+import { fileURLToPath } from "url";
 import path from "path";
 import os from "os";
 import { createInterface } from "readline";
@@ -89,9 +97,44 @@ export async function handleSetup(): Promise<void> {
   const dbPath = getDefaultDbPath();
   await initDatabase(dbPath);
 
+  const cmdResult = installCommands();
+
   console.error(`Setup complete.`);
   console.error(`  Database: ${dbPath}`);
   console.error(`  Hooks: ${settingsPath}`);
+  console.error(
+    `  Commands: ${cmdResult.installed} installed, ${cmdResult.skipped} skipped`,
+  );
+}
+
+// --- Install memo- commands ---
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export function installCommands(): { installed: number; skipped: number } {
+  const sourceDir = path.join(__dirname, "..", "commands");
+  const targetDir = path.join(os.homedir(), ".claude", "commands");
+  ensureDir(targetDir);
+
+  let installed = 0;
+  let skipped = 0;
+
+  const files = readdirSync(sourceDir).filter((f) => f.endsWith(".md"));
+  for (const file of files) {
+    const targetPath = path.join(targetDir, file);
+    if (existsSync(targetPath)) {
+      const name = file.replace(".md", "");
+      console.error(`  Skipping ${name} -- already exists`);
+      skipped++;
+    } else {
+      copyFileSync(path.join(sourceDir, file), targetPath);
+      const name = file.replace(".md", "");
+      console.error(`  Installed /${name}`);
+      installed++;
+    }
+  }
+
+  return { installed, skipped };
 }
 
 // --- Extract command ---

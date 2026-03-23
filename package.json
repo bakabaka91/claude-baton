@@ -12,6 +12,7 @@
     "dist",
     "bin",
     "prompts",
+    "commands",
     "README.md",
     "LICENSE"
   ],
