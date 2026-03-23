@@ -26,6 +26,7 @@ import {
   insertInsight,
   getInsight,
   getInsightsByProject,
+  getInsightsSince,
   insertDailySummary,
   getDailySummary,
   insertExtractionLog,
@@ -494,5 +495,136 @@ describe("date-range queries", () => {
       const results = getExtractionLogsByDate(db, project, targetDate);
       expect(results).toHaveLength(0);
     });
+  });
+});
+
+describe("git_snapshot in checkpoints", () => {
+  it("stores and retrieves git_snapshot", () => {
+    const snapshot = "abc1234 feat: add auth\ndef5678 fix: typo";
+    const id = insertCheckpoint(
+      db,
+      "/proj",
+      "sess-1",
+      "Working",
+      "Auth",
+      "Tests",
+      {
+        branch: "main",
+        gitSnapshot: snapshot,
+      },
+    );
+    const cp = getCheckpoint(db, id);
+    expect(cp).not.toBeNull();
+    expect(cp!.git_snapshot).toBe(snapshot);
+  });
+
+  it("returns null git_snapshot when not provided", () => {
+    const id = insertCheckpoint(
+      db,
+      "/proj",
+      "sess-1",
+      "Working",
+      "Auth",
+      "Tests",
+    );
+    const cp = getCheckpoint(db, id);
+    expect(cp).not.toBeNull();
+    expect(cp!.git_snapshot).toBeNull();
+  });
+
+  it("stores branch and uncommitted_files via opts", () => {
+    const id = insertCheckpoint(
+      db,
+      "/proj",
+      "sess-1",
+      "Working",
+      "Auth",
+      "Tests",
+      {
+        branch: "feature/auth",
+        uncommittedFiles: ["M src/auth.ts", "?? src/new.ts"],
+        gitSnapshot: "abc1234 feat: start",
+      },
+    );
+    const cp = getCheckpoint(db, id);
+    expect(cp!.branch).toBe("feature/auth");
+    expect(cp!.uncommitted_files).toEqual(["M src/auth.ts", "?? src/new.ts"]);
+    expect(cp!.git_snapshot).toBe("abc1234 feat: start");
+  });
+
+  it("getCheckpoint by ID returns correct checkpoint", () => {
+    const id1 = insertCheckpoint(
+      db,
+      "/proj",
+      "sess-1",
+      "State 1",
+      "Built 1",
+      "Next 1",
+    );
+    const id2 = insertCheckpoint(
+      db,
+      "/proj",
+      "sess-1",
+      "State 2",
+      "Built 2",
+      "Next 2",
+    );
+    const cp = getCheckpoint(db, id1);
+    expect(cp!.current_state).toBe("State 1");
+    const cp2 = getCheckpoint(db, id2);
+    expect(cp2!.current_state).toBe("State 2");
+  });
+});
+
+describe("getInsightsSince", () => {
+  const project = "/proj";
+
+  it("returns only insights after the given timestamp", () => {
+    insertInsight(db, project, "Old insight", "decision");
+    insertInsight(db, project, "New insight", "workflow");
+    insertInsight(db, project, "Newest insight", "architecture");
+
+    db.run(
+      `UPDATE insights SET created_at = '2026-03-22T08:00:00.000Z' WHERE content = 'Old insight'`,
+    );
+    db.run(
+      `UPDATE insights SET created_at = '2026-03-22T14:00:00.000Z' WHERE content = 'New insight'`,
+    );
+    db.run(
+      `UPDATE insights SET created_at = '2026-03-22T18:00:00.000Z' WHERE content = 'Newest insight'`,
+    );
+
+    const results = getInsightsSince(db, project, "2026-03-22T12:00:00.000Z");
+    expect(results).toHaveLength(2);
+    expect(results[0].content).toBe("New insight");
+    expect(results[1].content).toBe("Newest insight");
+  });
+
+  it("returns empty array when no insights match", () => {
+    insertInsight(db, project, "Early insight", "cost");
+    db.run(`UPDATE insights SET created_at = '2026-03-20T08:00:00.000Z'`);
+
+    const results = getInsightsSince(db, project, "2026-03-22T00:00:00.000Z");
+    expect(results).toHaveLength(0);
+  });
+
+  it("includes insights at exactly the since timestamp", () => {
+    insertInsight(db, project, "Exact match", "surprise");
+    db.run(`UPDATE insights SET created_at = '2026-03-22T12:00:00.000Z'`);
+
+    const results = getInsightsSince(db, project, "2026-03-22T12:00:00.000Z");
+    expect(results).toHaveLength(1);
+    expect(results[0].content).toBe("Exact match");
+  });
+
+  it("filters by project path", () => {
+    insertInsight(db, "/proj-a", "A insight", "decision");
+    insertInsight(db, "/proj-b", "B insight", "decision");
+
+    db.run(`UPDATE insights SET created_at = '2026-03-22T12:00:00.000Z'`);
+
+    const results = getInsightsSince(db, "/proj-a", "2026-03-22T00:00:00.000Z");
+    expect(results).toHaveLength(1);
+    expect(results[0].content).toBe("A insight");
   });
 });

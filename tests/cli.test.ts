@@ -43,6 +43,9 @@ vi.mock("fs", async () => {
     statSync: vi.fn().mockReturnValue({ size: 4096 }),
     readFileSync: vi.fn(),
     writeFileSync: vi.fn(),
+    copyFileSync: vi.fn(),
+    readdirSync: vi.fn().mockReturnValue([]),
+    mkdirSync: vi.fn(),
   };
 });
 
@@ -59,7 +62,13 @@ vi.mock("../src/store.js", async () => {
   };
 });
 
-import { existsSync, readFileSync, statSync } from "fs";
+import {
+  existsSync,
+  readFileSync,
+  statSync,
+  copyFileSync,
+  readdirSync,
+} from "fs";
 import {
   initDatabase as mockInitDb,
   getDefaultDbPath,
@@ -72,12 +81,15 @@ import {
   handleExport,
   handleImport,
   handleReset,
+  installCommands,
 } from "../src/cli.js";
 
 const mockExistsSync = vi.mocked(existsSync);
 const mockInitDatabase = vi.mocked(mockInitDb);
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockStatSync = vi.mocked(statSync);
+const mockCopyFileSync = vi.mocked(copyFileSync);
+const mockReaddirSync = vi.mocked(readdirSync);
 
 let db: Database;
 const PROJECT = "/test/project";
@@ -564,6 +576,100 @@ describe("handleReset", () => {
     expect(errorSpy).toHaveBeenCalledWith(
       "No database found. Nothing to reset.",
     );
+
+    errorSpy.mockRestore();
+  });
+});
+
+// --- installCommands ---
+
+describe("installCommands", () => {
+  it("copies files when target does not exist", () => {
+    mockReaddirSync.mockReturnValue([
+      "memo-checkpoint.md",
+      "memo-resume.md",
+      "memo-insight.md",
+      "memo-eod.md",
+    ] as unknown as ReturnType<typeof readdirSync>);
+    mockExistsSync.mockReturnValue(false);
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = installCommands();
+
+    expect(result.installed).toBe(4);
+    expect(result.skipped).toBe(0);
+    expect(mockCopyFileSync).toHaveBeenCalledTimes(4);
+
+    errorSpy.mockRestore();
+  });
+
+  it("skips files when target already exists", () => {
+    mockReaddirSync.mockReturnValue([
+      "memo-checkpoint.md",
+      "memo-resume.md",
+    ] as unknown as ReturnType<typeof readdirSync>);
+    mockExistsSync.mockReturnValue(true);
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = installCommands();
+
+    expect(result.installed).toBe(0);
+    expect(result.skipped).toBe(2);
+    expect(mockCopyFileSync).not.toHaveBeenCalled();
+
+    errorSpy.mockRestore();
+  });
+
+  it("handles mix of new and existing files", () => {
+    mockReaddirSync.mockReturnValue([
+      "memo-checkpoint.md",
+      "memo-resume.md",
+      "memo-insight.md",
+    ] as unknown as ReturnType<typeof readdirSync>);
+
+    // First call: ensureDir check, second+: per-file existsSync
+    let callCount = 0;
+    mockExistsSync.mockImplementation(() => {
+      callCount++;
+      // First call is ensureDir check (returns false to trigger mkdir)
+      if (callCount <= 1) return false;
+      // memo-checkpoint.md exists, memo-resume.md and memo-insight.md don't
+      return callCount === 2;
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = installCommands();
+
+    expect(result.installed).toBe(2);
+    expect(result.skipped).toBe(1);
+    expect(mockCopyFileSync).toHaveBeenCalledTimes(2);
+
+    errorSpy.mockRestore();
+  });
+
+  it("logs installed and skipped command names", () => {
+    mockReaddirSync.mockReturnValue([
+      "memo-checkpoint.md",
+      "memo-resume.md",
+    ] as unknown as ReturnType<typeof readdirSync>);
+
+    let callCount = 0;
+    mockExistsSync.mockImplementation(() => {
+      callCount++;
+      if (callCount <= 1) return false;
+      return callCount === 2; // first file exists, second doesn't
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    installCommands();
+
+    const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(output).toContain("Skipping memo-checkpoint");
+    expect(output).toContain("Installed /memo-resume");
 
     errorSpy.mockRestore();
   });
