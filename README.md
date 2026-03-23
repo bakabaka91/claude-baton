@@ -132,7 +132,7 @@ All data lives in `~/.memoria-solo/store.db`:
 ## Development
 
 ```bash
-git clone https://github.com/yourusername/memoria-solo.git
+git clone https://github.com/bakabaka91/memoria-solo.git
 cd memoria-solo
 npm install
 npm run build
