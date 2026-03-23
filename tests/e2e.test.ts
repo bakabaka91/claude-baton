@@ -298,6 +298,8 @@ describe("extraction → consolidation → sync chain", () => {
     writeFileSync(claudeMdPath, "# Project\n");
 
     // Step 1: Extract memories
+    // The two decisions are intentionally similar — extraction-time dedup
+    // catches them (Jaccard >= 0.6), so only 2 items get stored.
     mockCallClaudeJson.mockResolvedValueOnce([
       {
         type: "memory",
@@ -327,17 +329,17 @@ describe("extraction → consolidation → sync chain", () => {
       "stop",
       { syncMd: true },
     );
-    expect(extractResult.itemsStored).toBe(3);
+    expect(extractResult.itemsStored).toBe(2);
 
-    // Step 2: Consolidate (dedup should catch the similar memories)
+    // Step 2: Consolidate (dedup already happened at extraction time)
     const consolidateResult = await consolidate(db, tmpDir, { syncMd: true });
-    expect(consolidateResult.deduplicated).toBe(1);
+    expect(consolidateResult.deduplicated).toBe(0);
 
     // Step 3: Verify CLAUDE.md has the final state
     const content = readFileSync(claudeMdPath, "utf-8");
     expect(content).toContain("<!-- MEMORIA:START -->");
     expect(content).toContain("No native bindings");
-    // Only one decision should remain after dedup
+    // Only one decision since extraction dedup caught the duplicate
     const active = getMemoriesByProject(db, tmpDir, "decision", "active");
     expect(active).toHaveLength(1);
 
