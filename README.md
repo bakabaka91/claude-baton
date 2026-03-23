@@ -143,20 +143,20 @@ All data lives in `~/.memoria-solo/store.db`:
 - **daily_summaries** — LLM-generated EOD summaries
 - **extraction_log** — tracking for transcript processing
 
-## Comparison to memory-mcp
+## Features
 
-| Feature | memory-mcp | memoria-solo |
-|---------|-----------|--------------|
-| LLM engine | Anthropic API ($) | `claude -p` (free with subscription) |
-| Dead end tracking | No | Yes |
-| Constraints | No | Yes |
-| Goals | No | Yes |
-| Session lifecycle | No | Yes |
-| Cross-project | No | Yes |
-| Storage | JSON files | SQLite |
-| CLAUDE.md ordering | By confidence | Constraints first |
-| Daily summaries | No | Yes |
-| API key required | Yes | No |
+| Feature | memoria-solo |
+|---------|--------------|
+| LLM engine | `claude -p` (free with subscription) |
+| Dead end tracking | Yes |
+| Constraints | Yes |
+| Goals | Yes |
+| Session lifecycle | Yes |
+| Cross-project | Yes |
+| Storage | SQLite |
+| CLAUDE.md ordering | Constraints first |
+| Daily summaries | Yes |
+| API key required | No |
 
 ## Development
 
