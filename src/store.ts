@@ -809,7 +809,7 @@ export function countAll(
     return {
       memories: countTable(
         db,
-        "SELECT COUNT(*) as count FROM memories WHERE project_path = ?",
+        "SELECT COUNT(*) as count FROM memories WHERE project_path = ? AND status = 'active'",
         p,
       ),
       dead_ends: countTable(
@@ -850,7 +850,11 @@ export function countAll(
     };
   }
   return {
-    memories: countTable(db, "SELECT COUNT(*) as count FROM memories", []),
+    memories: countTable(
+      db,
+      "SELECT COUNT(*) as count FROM memories WHERE status = 'active'",
+      [],
+    ),
     dead_ends: countTable(db, "SELECT COUNT(*) as count FROM dead_ends", []),
     constraints: countTable(
       db,

@@ -234,10 +234,9 @@ function applyConsolidateActions(
         }
 
         // Look up source memories (some may have just been archived)
-        const mergedSources = [
-          ...getMemoriesByProject(db, projectPath),
-          ...getMemoriesByProject(db, projectPath, undefined, "archived"),
-        ].filter((m) => action.ids.includes(m.id));
+        const mergedSources = getMemoriesByProject(db, projectPath).filter(
+          (m) => action.ids.includes(m.id),
+        );
 
         for (const m of mergedSources) {
           bestType = m.type;

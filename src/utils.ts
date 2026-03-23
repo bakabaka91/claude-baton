@@ -82,7 +82,7 @@ export function checkDuplicate(
   while (stmt.step()) {
     const row = stmt.getAsObject();
     const score = jaccardSimilarity(content, row.content as string);
-    if (score > threshold && score > bestScore) {
+    if (score >= threshold && score > bestScore) {
       bestScore = score;
       bestMatch = {
         ...row,
