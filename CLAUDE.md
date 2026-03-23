@@ -76,5 +76,23 @@ Installed to `~/.claude/commands/` during `memoria-solo setup`.
 | `/memo-insight <text>` | Capture a real-time insight with auto-categorization |
 | `/memo-eod` | End-of-day summary combining git activity with stored data |
 
+## Releasing & versioning
+
+- **Version source of truth**: `package.json` only. The CLI reads it at runtime — never hardcode versions elsewhere.
+- **npm published**: package is `memoria-solo` on npmjs.com, owned by `santoshus`.
+
+**To release a new version:**
+```bash
+npm version patch     # or minor/major — bumps package.json, commits, tags
+npm publish           # publishes to npm registry
+git push && git push --tags   # push commit + tag to GitHub
+```
+
+**Rules:**
+- Always run `/build` and `/test` before publishing
+- Never publish with failing tests
+- The `prepare` script runs `tsc` automatically before `npm publish`
+- Use `npm version` to bump — never edit version in package.json manually
+
 ## Current state
-All phases complete. 18 MCP tools, 4 slash commands, 258 tests passing.
+All phases complete. 18 MCP tools, 4 slash commands, 286 tests passing. Published on npm.

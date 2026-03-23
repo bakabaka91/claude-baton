@@ -579,12 +579,16 @@ function askConfirmation(prompt: string): Promise<string> {
 
 // --- CLI program ---
 
+const pkg = JSON.parse(
+  readFileSync(path.join(__dirname, "..", "package.json"), "utf-8"),
+);
+
 const program = new Command();
 
 program
   .name("memoria-solo")
   .description("Persistent memory for Claude Code sessions")
-  .version("1.0.2");
+  .version(pkg.version);
 
 program
   .command("serve")

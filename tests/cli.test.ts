@@ -37,11 +37,20 @@ vi.mock("commander", () => {
 // Mock fs to control existsSync/statSync checks in handlers
 vi.mock("fs", async () => {
   const actual = await vi.importActual<typeof import("fs")>("fs");
+  const mockReadFileSync = vi
+    .fn()
+    .mockImplementation((p: string, ...args: unknown[]) => {
+      // Allow package.json reads to pass through for version loading
+      if (typeof p === "string" && p.endsWith("package.json")) {
+        return actual.readFileSync(p, ...(args as [BufferEncoding]));
+      }
+      return undefined;
+    });
   return {
     ...actual,
     existsSync: vi.fn().mockReturnValue(true),
     statSync: vi.fn().mockReturnValue({ size: 4096 }),
-    readFileSync: vi.fn(),
+    readFileSync: mockReadFileSync,
     writeFileSync: vi.fn(),
     copyFileSync: vi.fn(),
     readdirSync: vi.fn().mockReturnValue([]),
