@@ -7,7 +7,8 @@ memoria-solo gives Claude Code a memory that survives session restarts. It autom
 ## Features
 
 - **Automatic extraction** — hook into Claude Code session events to extract memories from transcripts
-- **16 MCP tools** — search, save, recall, checkpoint, insight, goal tracking, constraint management, dead end logging
+- **18 MCP tools** — search, save, recall, checkpoint, insight, goal tracking, constraint management, dead end logging
+- **4 slash commands** — `/memo-checkpoint`, `/memo-resume`, `/memo-insight`, `/memo-eod`
 - **RAG-style recall** — synthesized answers from stored memories via `claude -p`
 - **Dead end tracking** — records failed approaches so they aren't retried
 - **Constraints** — project rules that persist across sessions
@@ -29,7 +30,7 @@ npm install -g memoria-solo
 memoria-solo setup
 ```
 
-This configures Claude Code hooks in `~/.claude/settings.json` and initializes the SQLite database at `~/.memoria-solo/store.db`.
+This configures Claude Code hooks in `~/.claude/settings.json`, initializes the SQLite database at `~/.memoria-solo/store.db`, and installs slash commands to `~/.claude/commands/`.
 
 ## Usage
 
@@ -52,8 +53,10 @@ memoria-solo runs as a stdio MCP server. After `setup`, Claude Code automaticall
 | `set_goal` | Set current sprint/task goal |
 | `get_goal` | Get active goal |
 | `save_checkpoint` | Save session state before context loss |
-| `get_checkpoint` | Retrieve latest checkpoint |
+| `get_checkpoint` | Retrieve checkpoint by ID or latest |
 | `save_insight` | Capture a real-time insight |
+| `get_insights` | Fetch insights filtered by time or date |
+| `list_checkpoints` | List all checkpoints for a date |
 | `daily_summary` | Generate EOD summary from day's activity |
 | `consolidate` | Manually trigger memory merge/prune/decay |
 | `sync_claude_md` | Manually refresh CLAUDE.md managed block |
@@ -68,6 +71,17 @@ memoria-solo export [project]    # export as JSON
 memoria-solo import <file>       # import from JSON
 memoria-solo reset [project]     # clear memories (with confirmation)
 ```
+
+### Slash Commands
+
+Installed automatically during `memoria-solo setup`. Use these in any Claude Code session:
+
+| Command | Description |
+|---------|-------------|
+| `/memo-checkpoint` | Save session state with git context — safe to `/compact` or `/clear` after |
+| `/memo-resume` | Restore context from last checkpoint at session start |
+| `/memo-insight <text>` | Capture a real-time insight with auto-categorization |
+| `/memo-eod` | End-of-day summary combining git activity with stored data |
 
 ### Hooks
 

@@ -19,9 +19,10 @@ npm run dev          # start MCP server (stdio)
 - `src/consolidator.ts` — Merge/prune/decay logic
 - `src/claude-md.ts` — CLAUDE.md managed block sync
 - `src/llm.ts` — claude -p wrapper
-- `src/cli.ts` — CLI commands (setup, status, search, export, import, reset)
+- `src/cli.ts` — CLI commands (setup, status, search, export, import, reset) + command installer
 - `src/utils.ts` — Cursor tracking, chunking, similarity
 - `prompts/` — Extraction, consolidation, recall prompt templates
+- `commands/` — Slash command files (memo-checkpoint, memo-resume, memo-insight, memo-eod)
 - `tests/` — Test suite
 - `bin/memoria-solo.js` — CLI entry point
 
@@ -44,7 +45,7 @@ When working on code, use the scoped agent for that domain. Never let one agent 
 | Data types, SQLite operations, utilities | `store` | `src/types.ts`, `src/store.ts`, `src/utils.ts` |
 | MCP server, tool definitions, claude -p wrapper | `server` | `src/index.ts`, `src/llm.ts` |
 | Extraction, consolidation, CLAUDE.md sync, prompts | `pipeline` | `src/extractor.ts`, `src/consolidator.ts`, `src/claude-md.ts`, `prompts/` |
-| CLI commands, bin entry point | `cli` | `src/cli.ts`, `bin/` |
+| CLI commands, bin entry point, slash commands | `cli` | `src/cli.ts`, `bin/`, `commands/` |
 | Writing or updating tests | `test-gen` | `tests/` |
 
 **Rules:**
@@ -64,5 +65,16 @@ When working on code, use the scoped agent for that domain. Never let one agent 
 | `/pr` | Pre-flight, test, lint, create PR |
 | `/verify` | Run acceptance checklist from PLAN.md |
 
+## Slash commands (shipped with product)
+
+Installed to `~/.claude/commands/` during `memoria-solo setup`.
+
+| Command | Purpose |
+|---|---|
+| `/memo-checkpoint` | Save session state with git context before /compact or /clear |
+| `/memo-resume` | Restore context from last checkpoint at session start |
+| `/memo-insight <text>` | Capture a real-time insight with auto-categorization |
+| `/memo-eod` | End-of-day summary combining git activity with stored data |
+
 ## Current state
-Phase 1 not started. Only PLAN.md exists.
+All phases complete. 18 MCP tools, 4 slash commands, 181 tests passing.
