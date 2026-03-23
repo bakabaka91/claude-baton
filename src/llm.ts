@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import os from "os";
 
 /**
  * Strip markdown code fences from LLM output.
@@ -26,11 +27,18 @@ function callClaudeRaw(
   return new Promise((resolve, reject) => {
     let settled = false;
 
+    // Strip Claude Code env vars so nested claude -p works from hooks
+    const env = { ...process.env };
+    delete env.CLAUDECODE;
+    delete env.CLAUDE_CODE_ENTRYPOINT;
+
     const proc = spawn(
       "claude",
       ["-p", "--model", model, "--output-format", "json"],
       {
         stdio: ["pipe", "pipe", "pipe"],
+        env,
+        cwd: os.tmpdir(),
       },
     );
 
@@ -55,6 +63,11 @@ function callClaudeRaw(
       clearTimeout(timer);
       if (settled) return;
       settled = true;
+      if (process.env.MEMORIA_DEBUG) {
+        console.error(
+          `[DEBUG] claude -p exit=${code} stdout=${stdout.slice(0, 500)} stderr=${stderr.slice(0, 200)}`,
+        );
+      }
       if (code !== 0) {
         reject(new Error(`claude -p exited with code ${code}: ${stderr}`));
         return;
@@ -69,6 +82,11 @@ function callClaudeRaw(
       reject(new Error(`Failed to spawn claude: ${err.message}`));
     });
 
+    if (process.env.MEMORIA_DEBUG) {
+      console.error(
+        `[DEBUG] Prompt length: ${prompt.length}, first 300 chars: ${prompt.slice(0, 300)}`,
+      );
+    }
     proc.stdin.write(prompt);
     proc.stdin.end();
   });

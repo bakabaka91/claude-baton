@@ -18,14 +18,19 @@ Extract items in these categories:
 4. **insight** — Surprising discoveries, workflow improvements, or cost observations.
    - category: "decision" | "workflow" | "architecture" | "surprise" | "cost"
 
-Respond with a JSON array of extracted items. Each item must match one of these shapes:
+Respond with a JSON array of extracted items. You MUST use EXACTLY these field names — no aliases, no renaming.
 
-```json
-{"type": "memory", "memory_type": "...", "content": "...", "tags": ["..."]}
-{"type": "dead_end", "summary": "...", "approach_tried": "...", "blocker": "..."}
-{"type": "constraint", "rule": "...", "constraint_type": "...", "severity": "..."}
-{"type": "insight", "content": "...", "category": "..."}
-```
+For type "memory": fields are "type", "memory_type", "content", "tags"
+For type "dead_end": fields are "type", "summary", "approach_tried", "blocker"
+For type "constraint": fields are "type", "rule", "constraint_type", "severity"
+For type "insight": fields are "type", "content", "category"
+
+Examples (use these EXACT field names):
+
+{"type": "memory", "memory_type": "decision", "content": "Chose sql.js over better-sqlite3 for WASM portability", "tags": ["sqlite", "architecture"]}
+{"type": "dead_end", "summary": "Redis caching caused 3s cold start", "approach_tried": "Added Redis layer for memory lookups", "blocker": "Unacceptable cold start latency for MCP server"}
+{"type": "constraint", "rule": "Never use native SQLite bindings", "constraint_type": "convention", "severity": "must"}
+{"type": "insight", "content": "sql.js WASM loads in under 50ms", "category": "surprise"}
 
 Rules:
 - Return `[]` if nothing worth extracting
@@ -33,6 +38,7 @@ Rules:
 - Prefer fewer high-quality extractions over many low-quality ones
 - Do not extract information that can be trivially derived from reading the codebase
 - Tags should be lowercase, short identifiers (e.g., "sqlite", "auth", "testing")
+- Do NOT use "title", "description", or "context" as field names — use ONLY the field names shown above
 
 Respond with ONLY a valid JSON array. Do not wrap in code fences. Do not include any text before or after the JSON array. Your entire response must be parseable by JSON.parse().
 

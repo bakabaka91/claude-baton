@@ -77,4 +77,4 @@ Installed to `~/.claude/commands/` during `memoria-solo setup`.
 | `/memo-eod` | End-of-day summary combining git activity with stored data |
 
 ## Current state
-All phases complete. 18 MCP tools, 4 slash commands, 181 tests passing.
+All phases complete. 18 MCP tools, 4 slash commands, 258 tests passing.
