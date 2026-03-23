@@ -58,41 +58,60 @@ export async function handleSetup(): Promise<void> {
     }
   }
 
-  settings.hooks = {
-    Stop: [
-      {
-        matcher: "",
-        hooks: [
-          {
-            type: "command",
-            command: "memoria-solo extract --event stop",
-          },
-        ],
-      },
-    ],
-    PreCompact: [
-      {
-        matcher: "",
-        hooks: [
-          {
-            type: "command",
-            command: "memoria-solo extract --event precompact",
-          },
-        ],
-      },
-    ],
-    SessionEnd: [
-      {
-        matcher: "",
-        hooks: [
-          {
-            type: "command",
-            command: "memoria-solo extract --event session-end --consolidate",
-          },
-        ],
-      },
-    ],
+  // Merge hooks without clobbering other tools' hooks
+  const hooks = (settings.hooks ?? {}) as Record<string, unknown[]>;
+  const memoriaHookEntries: Record<string, unknown> = {
+    Stop: {
+      matcher: "",
+      hooks: [
+        { type: "command", command: "memoria-solo extract --event stop" },
+      ],
+    },
+    PreCompact: {
+      matcher: "",
+      hooks: [
+        {
+          type: "command",
+          command: "memoria-solo extract --event precompact",
+        },
+      ],
+    },
+    SessionEnd: {
+      matcher: "",
+      hooks: [
+        {
+          type: "command",
+          command: "memoria-solo extract --event session-end --consolidate",
+        },
+      ],
+    },
   };
+
+  for (const [event, entry] of Object.entries(memoriaHookEntries)) {
+    const existing = Array.isArray(hooks[event]) ? hooks[event] : [];
+    // Remove any old memoria-solo entries, then add the current one
+    const filtered = existing.filter((e: unknown) => {
+      const entry = e as Record<string, unknown>;
+      const h = entry.hooks as Array<Record<string, unknown>> | undefined;
+      if (!Array.isArray(h)) return true;
+      return !h.some(
+        (hook) =>
+          typeof hook.command === "string" &&
+          hook.command.includes("memoria-solo"),
+      );
+    });
+    filtered.push(entry);
+    hooks[event] = filtered;
+  }
+  settings.hooks = hooks;
+
+  // Register MCP server
+  const mcpServers = (settings.mcpServers ?? {}) as Record<string, unknown>;
+  mcpServers["memoria-solo"] = {
+    command: "memoria-solo",
+    args: ["serve"],
+  };
+  settings.mcpServers = mcpServers;
 
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
 
@@ -104,6 +123,7 @@ export async function handleSetup(): Promise<void> {
   console.error(`Setup complete.`);
   console.error(`  Database: ${dbPath}`);
   console.error(`  Hooks: ${settingsPath}`);
+  console.error(`  MCP server: registered`);
   console.error(
     `  Commands: ${cmdResult.installed} installed, ${cmdResult.skipped} skipped`,
   );
@@ -175,6 +195,22 @@ export async function handleUninstall(opts: {
         if (Object.keys(settings.hooks).length === 0) {
           delete settings.hooks;
         }
+
+        // Remove MCP server registration
+        if (
+          settings.mcpServers &&
+          typeof settings.mcpServers === "object" &&
+          (settings.mcpServers as Record<string, unknown>)["memoria-solo"]
+        ) {
+          delete (settings.mcpServers as Record<string, unknown>)[
+            "memoria-solo"
+          ];
+          if (Object.keys(settings.mcpServers).length === 0) {
+            delete settings.mcpServers;
+          }
+          console.error("  Removed MCP server from settings.json");
+        }
+
         writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
         console.error("  Removed hooks from settings.json");
       }

@@ -1,6 +1,6 @@
 {
   "name": "memoria-solo",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Persistent memory MCP server for Claude Code — cross-session knowledge via local SQLite",
   "type": "module",
   "main": "dist/index.js",
@@ -29,6 +29,7 @@
     "node": ">=18"
   },
   "scripts": {
+    "prepare": "tsc",
     "build": "tsc",
     "test": "vitest run",
     "dev": "node dist/index.js",
