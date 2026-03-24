@@ -10,6 +10,7 @@ import {
   rmSync,
 } from "fs";
 import { fileURLToPath } from "url";
+import { spawn } from "child_process";
 import path from "path";
 import os from "os";
 import { createInterface } from "readline";
@@ -263,15 +264,53 @@ export async function handleExtract(opts: {
   event: string;
   consolidate?: boolean;
   project?: string;
+  transcript?: string;
+  session?: string;
 }): Promise<void> {
-  const dbPath = getDefaultDbPath();
-  const db = await initDatabase(dbPath);
+  // --transcript mode: read file directly (used by background process)
+  if (opts.transcript) {
+    if (!existsSync(opts.transcript)) {
+      console.error(`Transcript file not found: ${opts.transcript}`);
+      return;
+    }
+    const transcript = readFileSync(opts.transcript, "utf-8");
+    if (!transcript.trim()) {
+      console.error("Empty transcript, nothing to extract.");
+      return;
+    }
+    const projectPath = opts.project ?? process.cwd();
+    const sessionId = opts.session ?? `cli-${Date.now()}`;
+    const dbPath = getDefaultDbPath();
+    const db = await initDatabase(dbPath);
 
-  // Read stdin (hook metadata JSON or raw transcript)
-  let stdinData = "";
+    const result = await extractFromTranscript(
+      db,
+      transcript,
+      projectPath,
+      sessionId,
+      opts.event,
+      { dbPath, syncMd: true },
+    );
+    console.error(
+      `Extracted: ${result.itemsStored} stored, ${result.chunksProcessed} chunks, ${result.errors.length} errors`,
+    );
+
+    if (opts.consolidate) {
+      const cResult = await consolidate(db, projectPath, {
+        dbPath,
+        syncMd: true,
+      });
+      console.error(
+        `Consolidated: ${cResult.merged} merged, ${cResult.archived} archived, ${cResult.deduplicated} deduped, ${cResult.decayed} decayed`,
+      );
+    }
+    saveDatabase(db, dbPath);
+    return;
+  }
+
+  // Stdin mode: read hook metadata or raw transcript
   if (process.stdin.isTTY) {
     console.error("No piped input detected. Pipe a transcript via stdin.");
-    saveDatabase(db, dbPath);
     return;
   }
 
@@ -279,51 +318,54 @@ export async function handleExtract(opts: {
   for await (const chunk of process.stdin) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
-  stdinData = Buffer.concat(chunks).toString("utf-8");
+  const stdinData = Buffer.concat(chunks).toString("utf-8");
 
   if (!stdinData.trim()) {
     console.error("Empty transcript, nothing to extract.");
-    saveDatabase(db, dbPath);
     return;
   }
 
   // Detect Claude Code hook metadata JSON (has transcript_path field)
-  let transcript = stdinData;
-  let sessionId = process.env.CLAUDE_SESSION_ID ?? `cli-${Date.now()}`;
-  let projectPath = opts.project ?? process.cwd();
-
   try {
     const hookMeta = JSON.parse(stdinData.trim());
     if (hookMeta.transcript_path) {
-      // Claude Code hook: read the actual transcript file
-      if (!existsSync(hookMeta.transcript_path)) {
-        console.error(`Transcript file not found: ${hookMeta.transcript_path}`);
-        saveDatabase(db, dbPath);
-        return;
-      }
-      transcript = readFileSync(hookMeta.transcript_path, "utf-8");
-      if (hookMeta.session_id) sessionId = hookMeta.session_id;
-      if (!opts.project && hookMeta.cwd) projectPath = hookMeta.cwd;
+      // Spawn detached background process and return immediately
+      const args = [
+        "extract",
+        "--event",
+        opts.event,
+        "--transcript",
+        hookMeta.transcript_path,
+      ];
+      if (hookMeta.session_id) args.push("--session", hookMeta.session_id);
+      args.push("--project", opts.project ?? hookMeta.cwd ?? process.cwd());
+      if (opts.consolidate) args.push("--consolidate");
+
+      const child = spawn("memoria-solo", args, {
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
+      return;
     }
   } catch {
     // Not JSON — treat stdin as raw transcript (backwards compatible)
   }
 
-  if (!transcript.trim()) {
-    console.error("Empty transcript, nothing to extract.");
-    saveDatabase(db, dbPath);
-    return;
-  }
+  // Raw transcript piped via stdin
+  const dbPath = getDefaultDbPath();
+  const db = await initDatabase(dbPath);
+  const sessionId = process.env.CLAUDE_SESSION_ID ?? `cli-${Date.now()}`;
+  const projectPath = opts.project ?? process.cwd();
 
   const result = await extractFromTranscript(
     db,
-    transcript,
+    stdinData,
     projectPath,
     sessionId,
     opts.event,
     { dbPath, syncMd: true },
   );
-
   console.error(
     `Extracted: ${result.itemsStored} stored, ${result.chunksProcessed} chunks, ${result.errors.length} errors`,
   );
@@ -337,7 +379,6 @@ export async function handleExtract(opts: {
       `Consolidated: ${cResult.merged} merged, ${cResult.archived} archived, ${cResult.deduplicated} deduped, ${cResult.decayed} decayed`,
     );
   }
-
   saveDatabase(db, dbPath);
 }
 
@@ -644,6 +685,8 @@ program
   )
   .option("--consolidate", "Run consolidation after extraction")
   .option("--project <path>", "Project path (default: cwd)")
+  .option("--transcript <path>", "Read transcript from file (skips stdin)")
+  .option("--session <id>", "Session ID (default: from hook metadata or env)")
   .action((opts) => handleExtract(opts));
 
 program
