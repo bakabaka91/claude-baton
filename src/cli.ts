@@ -264,13 +264,11 @@ export async function handleExtract(opts: {
   consolidate?: boolean;
   project?: string;
 }): Promise<void> {
-  const projectPath = opts.project ?? process.cwd();
   const dbPath = getDefaultDbPath();
   const db = await initDatabase(dbPath);
-  const sessionId = process.env.CLAUDE_SESSION_ID ?? `cli-${Date.now()}`;
 
-  // Read transcript from stdin
-  let transcript = "";
+  // Read stdin (hook metadata JSON or raw transcript)
+  let stdinData = "";
   if (process.stdin.isTTY) {
     console.error("No piped input detected. Pipe a transcript via stdin.");
     saveDatabase(db, dbPath);
@@ -281,7 +279,35 @@ export async function handleExtract(opts: {
   for await (const chunk of process.stdin) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
-  transcript = Buffer.concat(chunks).toString("utf-8");
+  stdinData = Buffer.concat(chunks).toString("utf-8");
+
+  if (!stdinData.trim()) {
+    console.error("Empty transcript, nothing to extract.");
+    saveDatabase(db, dbPath);
+    return;
+  }
+
+  // Detect Claude Code hook metadata JSON (has transcript_path field)
+  let transcript = stdinData;
+  let sessionId = process.env.CLAUDE_SESSION_ID ?? `cli-${Date.now()}`;
+  let projectPath = opts.project ?? process.cwd();
+
+  try {
+    const hookMeta = JSON.parse(stdinData.trim());
+    if (hookMeta.transcript_path) {
+      // Claude Code hook: read the actual transcript file
+      if (!existsSync(hookMeta.transcript_path)) {
+        console.error(`Transcript file not found: ${hookMeta.transcript_path}`);
+        saveDatabase(db, dbPath);
+        return;
+      }
+      transcript = readFileSync(hookMeta.transcript_path, "utf-8");
+      if (hookMeta.session_id) sessionId = hookMeta.session_id;
+      if (!opts.project && hookMeta.cwd) projectPath = hookMeta.cwd;
+    }
+  } catch {
+    // Not JSON — treat stdin as raw transcript (backwards compatible)
+  }
 
   if (!transcript.trim()) {
     console.error("Empty transcript, nothing to extract.");

@@ -96,3 +96,23 @@ git push && git push --tags   # push commit + tag to GitHub
 
 ## Current state
 All phases complete. 18 MCP tools, 4 slash commands, 286 tests passing. Published on npm.
+
+<!-- MEMORIA:START -->
+## Dead Ends
+- Global install from GitHub failed with stale symlink and prepare script errors — Previous `npm link` left a stale symlink; `prepare` script uses bare `tsc` instead of `npx tsc`, breaking build during global install from git (2026-03-24)
+
+## Key Decisions
+- memoria-solo uses automated GitHub Actions CI/CD with gated merges: all checks (build/test/lint) must pass, 1 approval required, no force pushes allowed
+- Made memoria-solo repo public to enable GitHub branch protection (was previously private)
+- memoria-solo should be published to npm for normal usage; GitHub installs are a secondary developer workflow. The `prepare` script is designed for `npm publish` (to build before packaging), not for end-user GitHub installs.
+
+## Recent Context
+- pattern: Contributor workflow: fork → branch → code → build/test/lint locally → PR → CI gates → admin review → admin merge → admin releases to npm
+- gotcha: `git log --oneline -10` captures the last 10 commits from repo history, not session-scoped commits. If a session has >10 commits, older ones are cut off; if session has <10 commits, unrelated historical commits are included.
+- gotcha: Test suite mocks readFileSync globally; code reading package.json for runtime version needs special mock handling to return actual content instead of undefined
+- gotcha: The `prepare` script in package.json runs during `npm install -g` from GitHub, but devDependencies like TypeScript aren't available in the PATH yet. Bare `tsc` fails; must use `npx tsc` or guard the script.
+- architecture: The memo-resume command fetches the latest checkpoint by timestamp, regardless of how old it is. The git_snapshot is stored inside the checkpoint data itself, so it comes along when the checkpoint is retrieved.
+- architecture: CONTRIBUTING.md and PR template document contributor rules, build/test/format requirements, and agent routing constraints
+- architecture: Project is properly configured for npm publishing with `files`, `bin`, `main`, `types`, `engines`, `repository`, and `license` fields in package.json. Publishing workflow: authenticate with `npm login`, build with `npm run build`, bump version, run `npm publish`.
+- architecture: Memory extraction system has dual-stage deduplication: extraction-time (Jaccard similarity >= 0.6) and consolidation-time. Extraction-time dedup prevents items from being stored, so consolidation-time dedup never sees them.
+<!-- MEMORIA:END -->

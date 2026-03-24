@@ -2,7 +2,7 @@
 
 Date: 2026-03-23
 
-## Bug 1: Threshold inconsistency — `>` vs `>=` for memory dedup
+## Bug 1: ~~Threshold inconsistency — `>` vs `>=` for memory dedup~~ FIXED (5b86848)
 
 **Files**: `src/utils.ts:85`, `src/consolidator.ts:136`, `src/extractor.ts:140,173`
 
@@ -27,7 +27,7 @@ This creates inconsistent behavior between ingest and consolidation.
 
 ---
 
-## Bug 2: Redundant query causes duplicates in `applyConsolidateActions`
+## Bug 2: ~~Redundant query causes duplicates in `applyConsolidateActions`~~ FIXED (5b86848)
 
 **File**: `src/consolidator.ts:237-240`
 
@@ -71,7 +71,7 @@ This still won't find them because they were JUST archived. The correct fix is t
 
 ---
 
-## Bug 3: `memory_stats` counts inconsistency
+## Bug 3: ~~`memory_stats` counts inconsistency~~ FIXED (5b86848)
 
 **File**: `src/index.ts:540-549`
 
@@ -89,6 +89,47 @@ case "memory_stats": {
 **Impact**: Confusing output for users — the numbers don't add up.
 
 **Fix**: Either filter `countAll` memories to active only, or document the distinction. Recommended: make `countAll` also filter active memories for consistency.
+
+---
+
+## Bug 4: Export/import loses entity state — all records imported as defaults
+
+**File**: `src/cli.ts` — `handleImport()` (lines 433-534)
+
+**Trigger**: User runs `memoria-solo export` then `memoria-solo import` (machine migration, backup/restore, sharing).
+
+`handleImport` calls insert helper functions (`insertGoal`, `insertMemory`, etc.) which generate new IDs, new timestamps, and hardcode default statuses. The original field values from the export JSON are silently discarded.
+
+| Entity | Fields lost on import |
+|--------|----------------------|
+| Memories | `status`, `id`, `supersedes_id`, `created_at`, `updated_at` |
+| Goals | `status`, `id`, `created_at`, `updated_at` |
+| Dead ends | `resolved`, `id`, `created_at` |
+| Constraints | `id`, `created_at` |
+| Checkpoints | `id`, `created_at` |
+| Insights | `id`, `created_at` |
+
+**User impact**: After restoring from backup:
+- Paused goals come back as active → multiple active goals, wrong goal shown in CLAUDE.md
+- Archived/superseded memories come back as active → duplicates and outdated info resurface
+- All timestamps reset to import time → decay calculations, date queries, and history are wrong
+- All IDs regenerated → `supersedes_id` chains broken, any external references invalid
+
+**Fix**: Rewrite `handleImport` to use raw SQL inserts that preserve all original fields (id, status, timestamps, etc.) instead of calling insert helpers.
+
+---
+
+## Bug 5: Export/import drops extraction_logs entirely
+
+**File**: `src/cli.ts` — `handleImport()` (lines 433-534)
+
+**Trigger**: Same as Bug 4 — export then import.
+
+`handleExport` (line 425) correctly includes `extraction_logs` in the JSON output. But `handleImport` has no code block to restore them — they are silently skipped.
+
+**User impact**: After restoring from backup, the system has no record of previous extractions. The next time a hook fires for a session that was already processed, the cursor history is gone, so the system may re-process transcripts and create duplicate memories.
+
+**Fix**: Add an import block for `extraction_logs` using raw SQL inserts that preserve all fields.
 
 ---
 
