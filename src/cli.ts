@@ -9,6 +9,7 @@ import {
   unlinkSync,
   rmSync,
 } from "fs";
+import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 import path from "path";
 import os from "os";
@@ -27,6 +28,119 @@ import {
   deleteAllData,
 } from "./store.js";
 import { ensureDir } from "./utils.js";
+import { callClaudeJson } from "./llm.js";
+
+// --- Auto-checkpoint (PreCompact hook handler) ---
+
+interface AutoCheckpointResult {
+  what_was_built: string;
+  current_state: string;
+  next_steps: string;
+  decisions_made: string;
+  blockers: string;
+}
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function readPromptTemplate(name: string): string {
+  return readFileSync(path.join(__dirname, "..", "prompts", name), "utf-8");
+}
+
+function gitCmd(cmd: string): string {
+  try {
+    return execSync(cmd, { encoding: "utf-8", timeout: 5000 }).trim();
+  } catch {
+    return "";
+  }
+}
+
+export async function handleAutoCheckpoint(): Promise<void> {
+  try {
+    // Read hook metadata from stdin
+    let stdinData = "";
+    try {
+      stdinData = readFileSync(0, "utf-8");
+    } catch {
+      console.error("[memoria-solo] No stdin data, skipping auto-checkpoint");
+      return;
+    }
+
+    let transcriptPath: string | undefined;
+    try {
+      const metadata = JSON.parse(stdinData);
+      transcriptPath = metadata?.input?.metadata?.transcript_path;
+    } catch {
+      console.error(
+        "[memoria-solo] Could not parse hook metadata, skipping auto-checkpoint",
+      );
+      return;
+    }
+
+    if (!transcriptPath || !existsSync(transcriptPath)) {
+      console.error(
+        "[memoria-solo] Transcript not found, skipping auto-checkpoint",
+      );
+      return;
+    }
+
+    // Read and truncate transcript
+    const fullTranscript = readFileSync(transcriptPath, "utf-8");
+    const MAX_CHARS = 50000;
+    const transcript =
+      fullTranscript.length > MAX_CHARS
+        ? fullTranscript.slice(-MAX_CHARS)
+        : fullTranscript;
+
+    // Gather git state
+    const branch = gitCmd("git branch --show-current");
+    const status = gitCmd("git status --short");
+    const log = gitCmd("git log --oneline -10");
+
+    // Build prompt
+    const template = readPromptTemplate("auto_checkpoint.txt");
+    const prompt = template.replace("{TRANSCRIPT}", transcript);
+
+    // Call LLM
+    const result = await callClaudeJson<AutoCheckpointResult>(
+      prompt,
+      "haiku",
+      30000,
+    );
+
+    // Save checkpoint
+    const dbPath = getDefaultDbPath();
+    const db = await initDatabase(dbPath);
+    const projectPath = process.cwd();
+    const sessionId = new Date().toISOString();
+
+    const uncommittedFiles = status
+      ? status.split("\n").map((l) => l.trim())
+      : [];
+
+    insertCheckpoint(
+      db,
+      projectPath,
+      sessionId,
+      result.current_state || "Unknown",
+      result.what_was_built || "Unknown",
+      result.next_steps || "Unknown",
+      {
+        branch: branch || undefined,
+        decisionsMade: result.decisions_made || undefined,
+        blockers: result.blockers || undefined,
+        uncommittedFiles,
+        gitSnapshot: log || undefined,
+      },
+      dbPath,
+    );
+
+    console.error("[memoria-solo] Auto-checkpoint saved before compaction");
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[memoria-solo] Auto-checkpoint failed: ${msg}`);
+    // Exit gracefully — don't block compaction
+  }
+}
 
 // --- Setup command ---
 
@@ -52,6 +166,24 @@ export async function handleSetup(): Promise<void> {
   };
   settings.mcpServers = mcpServers;
 
+  // Register PreCompact hook (idempotent — skip if already present)
+  const hooks = (settings.hooks ?? {}) as Record<string, unknown>;
+  const preCompactHooks = (hooks.PreCompact ?? []) as Array<
+    Record<string, string>
+  >;
+  const hasMemoriaHook = preCompactHooks.some(
+    (h) => h.command && h.command.includes("memoria-solo"),
+  );
+  if (!hasMemoriaHook) {
+    preCompactHooks.push({
+      type: "command",
+      command: "npx -y memoria-solo auto-checkpoint",
+    });
+    hooks.PreCompact = preCompactHooks;
+    settings.hooks = hooks;
+    console.error("  Registered PreCompact hook");
+  }
+
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
 
   const dbPath = getDefaultDbPath();
@@ -68,8 +200,6 @@ export async function handleSetup(): Promise<void> {
 }
 
 // --- Install memo- commands ---
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export function installCommands(): { installed: number; skipped: number } {
   const sourceDir = path.join(__dirname, "..", "commands");
@@ -120,6 +250,28 @@ export async function handleUninstall(opts: {
           delete settings.mcpServers;
         }
         console.error("  Removed MCP server from settings.json");
+      }
+
+      // Remove PreCompact hook
+      if (
+        settings.hooks &&
+        typeof settings.hooks === "object" &&
+        (settings.hooks as Record<string, unknown>).PreCompact
+      ) {
+        const hooksObj = settings.hooks as Record<string, unknown>;
+        const preCompact = hooksObj.PreCompact as Array<Record<string, string>>;
+        const filtered = preCompact.filter(
+          (h) => !h.command || !h.command.includes("memoria-solo"),
+        );
+        if (filtered.length === 0) {
+          delete hooksObj.PreCompact;
+        } else {
+          hooksObj.PreCompact = filtered;
+        }
+        if (Object.keys(hooksObj).length === 0) {
+          delete settings.hooks;
+        }
+        console.error("  Removed PreCompact hook");
       }
 
       writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
@@ -344,6 +496,11 @@ program
   .command("setup")
   .description("Register MCP server and initialize database")
   .action(() => handleSetup());
+
+program
+  .command("auto-checkpoint")
+  .description("Auto-save checkpoint (called by PreCompact hook)")
+  .action(() => handleAutoCheckpoint());
 
 program
   .command("uninstall")
