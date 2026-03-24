@@ -128,6 +128,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "string",
             description: "Recent commits, e.g. output of git log --oneline -10",
           },
+          plan_reference: {
+            type: "string",
+            description:
+              "Reference to active plan document and section, e.g. 'docs/plan.md Phase 2 Step 3'",
+          },
           project: {
             type: "string",
             description: "Project path (defaults to cwd)",
@@ -226,6 +231,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             blockers: a?.blockers as string | undefined,
             uncommittedFiles: a?.uncommitted_files as string[] | undefined,
             gitSnapshot: a?.git_snapshot as string | undefined,
+            planReference: a?.plan_reference as string | undefined,
           },
           dbPath,
         );

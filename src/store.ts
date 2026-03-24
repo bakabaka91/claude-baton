@@ -50,6 +50,7 @@ export function initSchema(db: Database): void {
       blockers TEXT,
       uncommitted_files TEXT DEFAULT '[]',
       git_snapshot TEXT,
+      plan_reference TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_checkpoints_project ON checkpoints(project_path);
@@ -72,6 +73,13 @@ export function initSchema(db: Database): void {
   } catch {
     // Column already exists — expected for new databases or already-migrated ones
   }
+
+  // Migration: add plan_reference column for existing databases
+  try {
+    db.exec("ALTER TABLE checkpoints ADD COLUMN plan_reference TEXT");
+  } catch {
+    // Column already exists
+  }
 }
 
 // --- Checkpoints CRUD ---
@@ -89,13 +97,14 @@ export function insertCheckpoint(
     blockers?: string;
     uncommittedFiles?: string[];
     gitSnapshot?: string;
+    planReference?: string;
   },
   dbPath?: string,
 ): string {
   const id = crypto.randomUUID();
   db.run(
-    `INSERT INTO checkpoints (id, project_path, session_id, branch, current_state, what_was_built, next_steps, decisions_made, blockers, uncommitted_files, git_snapshot, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO checkpoints (id, project_path, session_id, branch, current_state, what_was_built, next_steps, decisions_made, blockers, uncommitted_files, git_snapshot, plan_reference, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       projectPath,
@@ -108,6 +117,7 @@ export function insertCheckpoint(
       opts?.blockers ?? null,
       JSON.stringify(opts?.uncommittedFiles ?? []),
       opts?.gitSnapshot ?? null,
+      opts?.planReference ?? null,
       new Date().toISOString(),
     ],
   );
@@ -143,6 +153,7 @@ function parseCheckpointRow(row: Record<string, unknown>): Checkpoint {
     ...row,
     uncommitted_files: JSON.parse(row.uncommitted_files as string),
     git_snapshot: (row.git_snapshot as string | null) ?? null,
+    plan_reference: (row.plan_reference as string | null) ?? null,
   } as Checkpoint;
 }
 

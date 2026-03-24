@@ -7,11 +7,13 @@ Analyze the transcript and produce a JSON object with these fields:
 - next_steps: What should be done next (1-2 sentences, actionable)
 - decisions_made: Key decisions made during this session, if any (1-2 sentences, or "None")
 - blockers: Anything blocking progress, if any (1 sentence, or "None")
+- plan_reference: If the session references an active plan document (e.g. PLAN.md, docs/plan.md, a spec file), include the file path and the specific section being worked on (e.g. "docs/v2-plan.md Phase 2 Step 3"). Null if no plan document is referenced.
 
 Rules:
 - Be concise — each field should be 1-3 sentences max
 - Focus on what changed, not what was discussed
 - next_steps should be specific enough to resume work
+- For plan_reference, look for file reads/references to plan docs, spec files, or roadmap documents in the transcript
 - Output ONLY valid JSON, no markdown, no explanation
 
 Example output:
@@ -20,7 +22,8 @@ Example output:
   "current_state": "Build passing, 45 tests passing. Auth routes implemented but not yet integrated with frontend.",
   "next_steps": "Wire up login form to POST /auth/login endpoint. Add token refresh middleware.",
   "decisions_made": "Using bcrypt over argon2 for password hashing due to simpler deployment. Storing refresh tokens in httpOnly cookies.",
-  "blockers": "None"
+  "blockers": "None",
+  "plan_reference": "docs/auth-plan.md Phase 2 Step 1"
 }
 
 Transcript:

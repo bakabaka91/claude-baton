@@ -14,9 +14,15 @@ Restore context from last checkpoint at session start.
    - `git log --oneline -10`
    - `git diff --stat main...HEAD`
 
-5. If the checkpoint's current_state contains a plan reference (e.g. "PLAN.md Phase 3"), read the referenced file and extract the relevant section.
+5. If the checkpoint has a `plan_reference` field (e.g. "docs/v2-plan.md Phase 2 Step 3"), read the referenced file and extract the relevant section. Parse the plan_reference to get the file path (everything before the section identifier like "Phase" or "Step") and the section name.
 
-6. Present the structured handover briefing:
+6. Diff intelligence -- compare checkpoint state to current state:
+   - If checkpoint has a `git_snapshot`, extract the top commit hash and run `git diff --stat <hash>..HEAD` to see what files changed since checkpoint
+   - Compare checkpoint `uncommitted_files` vs current `git status --short` -- note any files that were added, removed, or committed since checkpoint
+   - If `package.json` appears in changed files, run `git diff <hash>..HEAD -- package.json` to check for dependency changes
+   - Summarize as: "X files modified, Y new commits, Z dependency changes" (or "No changes since checkpoint" if clean)
+
+7. Present the structured handover briefing:
 
 ```
 ## Session Resume -- [Project Name] -- [DATE]
@@ -38,12 +44,21 @@ Resuming from checkpoint: [timestamp]
 
 ### Blockers
 [blockers from checkpoint -- or "None"]
+[If blockers exist, surface them prominently with a warning]
 
 ### Active Plan Context
-[plan section content if referenced -- or "No active plan referenced"]
+[If plan_reference exists: show the reference, then the extracted section content from step 5]
+[If no plan_reference: "No active plan"]
+
+### Changes Since Checkpoint
+[Diff intelligence summary from step 6]
+[Files changed, new commits, dependency changes]
 
 ### Next Steps
-[next_steps from checkpoint] -- this is where to pick up.
+Present as numbered action items:
+1. [first action from next_steps]
+2. [second action if applicable]
+...
 
 ### Uncommitted Work
 [checkpoint uncommitted_files vs current git status]
@@ -58,4 +73,4 @@ Resuming from checkpoint: [timestamp]
 [If none: "No new commits since checkpoint"]
 ```
 
-7. End with: "Ready to continue. The next step from your last session was: [next_steps]. Want me to pick that up, or are we doing something else?"
+8. End with: "Ready to continue. Want me to start with step 1, or are we doing something else?" (referring to the numbered action items above)

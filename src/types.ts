@@ -11,6 +11,7 @@ export interface Checkpoint {
   blockers: string | null;
   uncommitted_files: string[];
   git_snapshot: string | null;
+  plan_reference: string | null;
   created_at: string;
 }
 

@@ -1,4 +1,4 @@
-End-of-day summary combining git activity with stored data.
+End-of-day summary combining git activity with stored checkpoints.
 
 ## Steps
 
@@ -12,7 +12,7 @@ End-of-day summary combining git activity with stored data.
    - `git diff --name-only HEAD~10 HEAD 2>/dev/null | head -30`
 
 4. Call the `daily_summary` MCP tool (defaults to today).
-   This internally gathers checkpoints, insights, memories, and extraction logs, sends them to Haiku for synthesis, and stores the result.
+   This internally gathers checkpoints and sends them to Haiku for synthesis, then stores the result.
 
 5. Merge git activity from step 2 with the daily_summary output.
 
@@ -29,9 +29,6 @@ End-of-day summary combining git activity with stored data.
 
 ### Blockers and Failures
 [From daily_summary blockers]
-
-### Insights from Today
-[Insights gathered by daily_summary]
 
 ### Open Questions / Tomorrow
 [next_steps from daily_summary]

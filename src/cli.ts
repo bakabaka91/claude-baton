@@ -38,6 +38,7 @@ interface AutoCheckpointResult {
   next_steps: string;
   decisions_made: string;
   blockers: string;
+  plan_reference: string | null;
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -130,6 +131,7 @@ export async function handleAutoCheckpoint(): Promise<void> {
         blockers: result.blockers || undefined,
         uncommittedFiles,
         gitSnapshot: log || undefined,
+        planReference: result.plan_reference || undefined,
       },
       dbPath,
     );
