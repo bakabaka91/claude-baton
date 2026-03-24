@@ -67,28 +67,6 @@ function requireString(
   return value;
 }
 
-/**
- * Validate that a required argument is a non-empty array of strings.
- * Returns the validated array, or throws with a descriptive message.
- */
-function requireStringArray(
-  args: Record<string, unknown> | undefined,
-  field: string,
-  toolName: string,
-): string[] {
-  const value = args?.[field];
-  if (
-    !Array.isArray(value) ||
-    value.length === 0 ||
-    !value.every((v) => typeof v === "string")
-  ) {
-    throw new ValidationError(
-      `${toolName} requires a "${field}" array of strings`,
-    );
-  }
-  return value as string[];
-}
-
 /** Sentinel error class for argument validation — caught in the handler to return toolError. */
 class ValidationError extends Error {
   constructor(message: string) {

@@ -1,7 +1,7 @@
 # memoria-solo — Development Guide
 
 ## What is this?
-Open-source MCP server for Claude Code — persistent memory across sessions using local SQLite. See PLAN.md for full spec.
+Session lifecycle management for Claude Code — checkpoint, resume, and EOD summaries via local SQLite. See PLAN.md for full spec.
 
 ## Quick start
 ```bash
@@ -14,15 +14,12 @@ npm run dev          # start MCP server (stdio)
 ## Project structure
 - `src/index.ts` — MCP server entry, tool definitions
 - `src/types.ts` — TypeScript interfaces for all data models
-- `src/store.ts` — SQLite operations via sql.js (CRUD, search, dedup)
-- `src/extractor.ts` — Hook handler: transcript → memories
-- `src/consolidator.ts` — Merge/prune/decay logic
-- `src/claude-md.ts` — CLAUDE.md managed block sync
+- `src/store.ts` — SQLite operations via sql.js (CRUD)
 - `src/llm.ts` — claude -p wrapper
-- `src/cli.ts` — CLI commands (setup, status, search, export, import, reset) + command installer
-- `src/utils.ts` — Cursor tracking, chunking, similarity
-- `prompts/` — Extraction, consolidation, recall prompt templates
-- `commands/` — Slash command files (memo-checkpoint, memo-resume, memo-insight, memo-eod)
+- `src/cli.ts` — CLI commands (setup, status, export, import, reset) + auto-checkpoint handler
+- `src/utils.ts` — Utility helpers
+- `prompts/` — Auto-checkpoint, daily summary prompt templates
+- `commands/` — Slash command files (memo-checkpoint, memo-resume, memo-eod)
 - `tests/` — Test suite
 - `bin/memoria-solo.js` — CLI entry point
 
@@ -31,10 +28,8 @@ npm run dev          # start MCP server (stdio)
 2. **Single SQLite DB** — all projects in `~/.memoria-solo/store.db`, never per-project files
 3. **stdio transport** — standard MCP, not SSE
 4. **Zero API keys** — all LLM calls via `claude -p`, never import anthropic SDK
-5. **4 dependencies max** — `@modelcontextprotocol/sdk`, `sql.js`, `zod`, `commander`
-6. **CLAUDE.md ordering** — constraints → dead ends → decisions → goal → context → checkpoint
-7. **sql.js pure WASM** — no native SQLite bindings, no better-sqlite3, no node-sqlite3
-8. **~200 line token budget** for managed CLAUDE.md block
+5. **3 dependencies max** — `@modelcontextprotocol/sdk`, `sql.js`, `commander`
+6. **sql.js pure WASM** — no native SQLite bindings, no better-sqlite3, no node-sqlite3
 
 ## Agent routing (mandatory)
 
@@ -44,7 +39,7 @@ When working on code, use the scoped agent for that domain. Never let one agent 
 |---|---|---|
 | Data types, SQLite operations, utilities | `store` | `src/types.ts`, `src/store.ts`, `src/utils.ts` |
 | MCP server, tool definitions, claude -p wrapper | `server` | `src/index.ts`, `src/llm.ts` |
-| Extraction, consolidation, CLAUDE.md sync, prompts | `pipeline` | `src/extractor.ts`, `src/consolidator.ts`, `src/claude-md.ts`, `prompts/` |
+| Prompts | `pipeline` | `prompts/` |
 | CLI commands, bin entry point, slash commands | `cli` | `src/cli.ts`, `bin/`, `commands/` |
 | Writing or updating tests | `test-gen` | `tests/` |
 
@@ -73,7 +68,6 @@ Installed to `~/.claude/commands/` during `memoria-solo setup`.
 |---|---|
 | `/memo-checkpoint` | Save session state with git context before /compact or /clear |
 | `/memo-resume` | Restore context from last checkpoint at session start |
-| `/memo-insight <text>` | Capture a real-time insight with auto-categorization |
 | `/memo-eod` | End-of-day summary combining git activity with stored data |
 
 ## Releasing & versioning
@@ -95,5 +89,4 @@ git push && git push --tags   # push commit + tag to GitHub
 - Use `npm version` to bump — never edit version in package.json manually
 
 ## Current state
-All phases complete. 18 MCP tools, 4 slash commands, 286 tests passing. Published on npm.
-
+v2 session lifecycle manager. 4 MCP tools, 3 slash commands, PreCompact auto-checkpoint hook. Published on npm.

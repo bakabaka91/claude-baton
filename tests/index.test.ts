@@ -17,16 +17,6 @@ import {
   insertDailySummary,
 } from "../src/store.js";
 
-// Mock LLM calls — all claude -p interactions are stubbed
-vi.mock("../src/llm.js", () => ({
-  callClaude: vi.fn(),
-  callClaudeJson: vi.fn(),
-}));
-
-import { callClaudeJson } from "../src/llm.js";
-
-const mockCallClaudeJson = vi.mocked(callClaudeJson);
-
 // ---------------------------------------------------------------------------
 // Validation helpers — recreated since they are not exported from index.ts
 // ---------------------------------------------------------------------------
@@ -49,24 +39,6 @@ function requireString(
     );
   }
   return value;
-}
-
-function requireStringArray(
-  args: Record<string, unknown> | undefined,
-  field: string,
-  toolName: string,
-): string[] {
-  const value = args?.[field];
-  if (
-    !Array.isArray(value) ||
-    value.length === 0 ||
-    !value.every((v) => typeof v === "string")
-  ) {
-    throw new ValidationError(
-      `${toolName} requires a "${field}" array of strings`,
-    );
-  }
-  return value as string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -259,7 +231,7 @@ describe("daily_summary tool logic (context assembly)", () => {
 // =========================================================================
 // Validation errors
 // =========================================================================
-describe("validation errors (requireString / requireStringArray)", () => {
+describe("validation errors (requireString)", () => {
   it("requireString throws when field is missing", () => {
     expect(() => requireString({}, "query", "save_checkpoint")).toThrow(
       ValidationError,
@@ -288,50 +260,6 @@ describe("validation errors (requireString / requireStringArray)", () => {
       "save_checkpoint",
     );
     expect(value).toBe("test query");
-  });
-
-  it("requireStringArray throws when field is missing", () => {
-    expect(() =>
-      requireStringArray({}, "done_when", "save_checkpoint"),
-    ).toThrow(ValidationError);
-    expect(() =>
-      requireStringArray({}, "done_when", "save_checkpoint"),
-    ).toThrow('save_checkpoint requires a "done_when" array of strings');
-  });
-
-  it("requireStringArray throws when field is empty array", () => {
-    expect(() =>
-      requireStringArray({ done_when: [] }, "done_when", "save_checkpoint"),
-    ).toThrow(ValidationError);
-  });
-
-  it("requireStringArray throws when array contains non-strings", () => {
-    expect(() =>
-      requireStringArray(
-        { done_when: ["valid", 123] },
-        "done_when",
-        "save_checkpoint",
-      ),
-    ).toThrow(ValidationError);
-  });
-
-  it("requireStringArray throws when field is not an array", () => {
-    expect(() =>
-      requireStringArray(
-        { done_when: "not-an-array" },
-        "done_when",
-        "save_checkpoint",
-      ),
-    ).toThrow(ValidationError);
-  });
-
-  it("requireStringArray returns value when valid", () => {
-    const value = requireStringArray(
-      { done_when: ["tests pass", "reviewed"] },
-      "done_when",
-      "save_checkpoint",
-    );
-    expect(value).toEqual(["tests pass", "reviewed"]);
   });
 
   // Simulate the handler's catch block for validation errors

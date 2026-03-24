@@ -1,22 +1,18 @@
 # memoria-solo
 
-Persistent memory MCP server for Claude Code — cross-session knowledge via local SQLite.
+Never lose context between Claude Code sessions again.
 
-memoria-solo gives Claude Code a memory that survives session restarts. It automatically extracts decisions, patterns, dead ends, and constraints from your conversations, stores them in a local SQLite database, and makes them available in future sessions.
+memoria-solo is an MCP server that gives Claude Code session continuity. It saves checkpoints of your session state, auto-saves before context compaction, and restores full context when you start a new session.
 
-## Features
+## Workflow
 
-- **Automatic extraction** — hook into Claude Code session events to extract memories from transcripts
-- **18 MCP tools** — search, save, recall, checkpoint, insight, goal tracking, constraint management, dead end logging
-- **4 slash commands** — `/memo-checkpoint`, `/memo-resume`, `/memo-insight`, `/memo-eod`
-- **RAG-style recall** — synthesized answers from stored memories via `claude -p`
-- **Dead end tracking** — records failed approaches so they aren't retried
-- **Constraints** — project rules that persist across sessions
-- **Session lifecycle** — checkpoint/resume/insight/EOD summary
-- **Consolidation** — automatic decay, deduplication, and LLM-assisted merging
-- **CLAUDE.md sync** — managed block with constraints, dead ends, decisions, goals
-- **Zero API keys** — all LLM calls via `claude -p` (uses your Claude subscription)
-- **Cross-project** — single SQLite database tracks all your projects
+```
+/memo-resume → work → /memo-checkpoint → /compact or /clear → repeat
+```
+
+1. **Resume** — start a session with `/memo-resume` to pick up where you left off
+2. **Work** — do your thing
+3. **Checkpoint** — run `/memo-checkpoint` before `/compact` or `/clear` (or let the auto-checkpoint handle `/compact` for you)
 
 ## Install
 
@@ -30,133 +26,79 @@ npm install -g memoria-solo
 memoria-solo setup
 ```
 
-This configures Claude Code hooks in `~/.claude/settings.json`, initializes the SQLite database at `~/.memoria-solo/store.db`, and installs slash commands to `~/.claude/commands/`.
+This:
+- Registers the MCP server in `~/.claude/settings.json`
+- Registers the PreCompact hook for auto-checkpoint
+- Initializes the SQLite database at `~/.memoria-solo/store.db`
+- Installs slash commands to `~/.claude/commands/`
 
-## Usage
-
-### As an MCP server
-
-memoria-solo runs as a stdio MCP server. After `setup`, Claude Code automatically connects to it.
-
-### MCP Tools
+## MCP Tools
 
 | Tool | Description |
 |------|-------------|
-| `memory_search` | Search across all memory types |
-| `memory_save` | Manually save a memory |
-| `memory_recall` | RAG-style synthesized recall on a topic |
-| `memory_stats` | Memory counts by type/project |
-| `log_dead_end` | Record a failed approach |
-| `check_dead_ends` | Check if an approach was already tried |
-| `add_constraint` | Add a project rule/constraint |
-| `get_constraints` | List active constraints |
-| `set_goal` | Set current sprint/task goal |
-| `get_goal` | Get active goal |
-| `save_checkpoint` | Save session state before context loss |
-| `get_checkpoint` | Retrieve checkpoint by ID or latest |
-| `save_insight` | Capture a real-time insight |
-| `get_insights` | Fetch insights filtered by time or date |
+| `save_checkpoint` | Save session state (what was built, current state, next steps, git context) |
+| `get_checkpoint` | Retrieve a checkpoint by ID, or the latest for the project |
 | `list_checkpoints` | List all checkpoints for a date |
-| `daily_summary` | Generate EOD summary from day's activity |
-| `consolidate` | Manually trigger memory merge/prune/decay |
-| `sync_claude_md` | Manually refresh CLAUDE.md managed block |
+| `daily_summary` | Generate EOD summary from the day's checkpoints |
 
-### CLI Commands
-
-```bash
-memoria-solo status              # memory counts, last extraction, db size
-memoria-solo search <query>      # search memories from terminal
-memoria-solo projects            # list tracked projects
-memoria-solo export [project]    # export as JSON
-memoria-solo import <file>       # import from JSON
-memoria-solo reset [project]     # clear memories (with confirmation)
-memoria-solo uninstall           # remove hooks, commands, MCP server, and database
-memoria-solo uninstall --keep-data  # uninstall but preserve the database
-```
-
-### Uninstall
-
-To completely remove memoria-solo:
-
-```bash
-# Step 1: Remove hooks, MCP server, slash commands, and database
-memoria-solo uninstall
-
-# Step 2: Remove the binary
-npm uninstall -g memoria-solo
-```
-
-To uninstall but keep your memories for later:
-
-```bash
-memoria-solo uninstall --keep-data
-npm uninstall -g memoria-solo
-```
-
-This removes:
-- Hooks from `~/.claude/settings.json` (Stop, PreCompact, SessionEnd)
-- MCP server registration from `~/.claude/settings.json`
-- Slash commands from `~/.claude/commands/` (memo-checkpoint, memo-resume, memo-insight, memo-eod)
-- Database at `~/.memoria-solo/store.db` (unless `--keep-data`)
-
-No other files or settings are modified.
-
-### Slash Commands
-
-Installed automatically during `memoria-solo setup`. Use these in any Claude Code session:
+## Slash Commands
 
 | Command | Description |
 |---------|-------------|
 | `/memo-checkpoint` | Save session state with git context — safe to `/compact` or `/clear` after |
 | `/memo-resume` | Restore context from last checkpoint at session start |
-| `/memo-insight <text>` | Capture a real-time insight with auto-categorization |
 | `/memo-eod` | End-of-day summary combining git activity with stored data |
 
-### Hooks
+## Auto-checkpoint
 
-After setup, these hooks run automatically:
-
-- **Stop** — extracts memories from the session transcript
-- **PreCompact** — auto-checkpoints before context compaction
-- **SessionEnd** — final extraction + consolidation
+A PreCompact hook automatically saves a checkpoint before Claude Code compacts context. This means you never lose session state during long conversations — it happens transparently.
 
 ## How it works
 
-1. **Extraction** — When a Claude Code session ends, the hook reads the transcript, chunks it, and sends each chunk to `claude -p --model haiku` with a structured extraction prompt. Extracted items (memories, dead ends, constraints, insights) are stored in SQLite with deduplication.
+1. **Checkpoint** — `/memo-checkpoint` (or the MCP tool) captures what you built, current state, next steps, decisions, blockers, and git context. Stored in a local SQLite database.
 
-2. **Recall** — When `memory_recall` is called, relevant memories are retrieved via text search, dead ends are filtered by Jaccard similarity, all constraints are included, and the bundle is sent to `claude -p` for synthesis.
+2. **Auto-checkpoint** — Before context compaction, the PreCompact hook reads the conversation transcript, sends it to `claude -p --model haiku` to extract session state, and saves a checkpoint automatically.
 
-3. **Consolidation** — Periodically, confidence decay reduces stale memory scores (progress: 7-day period, context: 30-day). Deduplication merges near-identical memories (Jaccard > 0.6). When memory count exceeds thresholds, LLM-assisted consolidation merges or prunes related items.
+3. **Resume** — `/memo-resume` fetches the latest checkpoint, compares git state, shows what changed since the checkpoint, and presents a structured handover briefing with actionable next steps.
 
-4. **CLAUDE.md sync** — A managed block is written to your project's CLAUDE.md with constraints first (things to avoid), then dead ends, key decisions, active goal, recent context, and last checkpoint.
+4. **EOD Summary** — `/memo-eod` generates a daily summary from all checkpoints, combining what was built, decisions made, and blockers across sessions.
+
+## CLI Commands
+
+```bash
+memoria-solo status              # checkpoint counts, db size
+memoria-solo projects            # list tracked projects
+memoria-solo export [--project]  # export as JSON
+memoria-solo import <file>       # import from JSON
+memoria-solo reset [--project]   # clear data (with confirmation)
+memoria-solo uninstall           # remove hooks, commands, MCP server, and database
+memoria-solo uninstall --keep-data  # uninstall but preserve the database
+```
+
+## Uninstall
+
+```bash
+# Remove hooks, MCP server, slash commands, and database
+memoria-solo uninstall
+
+# Remove the binary
+npm uninstall -g memoria-solo
+```
+
+To keep your data: `memoria-solo uninstall --keep-data`
 
 ## Data model
 
 All data lives in `~/.memoria-solo/store.db`:
 
-- **memories** — architecture, decision, pattern, gotcha, progress, context
-- **dead_ends** — failed approaches with blockers and resume conditions
-- **constraints** — project rules with type, severity, and scope
-- **goals** — sprint/task goals with completion criteria
-- **checkpoints** — session state snapshots for resumption
-- **insights** — real-time observations categorized by type
+- **checkpoints** — session state snapshots (what was built, current state, next steps, decisions, blockers, git context)
 - **daily_summaries** — LLM-generated EOD summaries
-- **extraction_log** — tracking for transcript processing
 
-## Features
+## Requirements
 
-| Feature | memoria-solo |
-|---------|--------------|
-| LLM engine | `claude -p` (free with subscription) |
-| Dead end tracking | Yes |
-| Constraints | Yes |
-| Goals | Yes |
-| Session lifecycle | Yes |
-| Cross-project | Yes |
-| Storage | SQLite |
-| CLAUDE.md ordering | Constraints first |
-| Daily summaries | Yes |
-| API key required | No |
+- Node.js >= 18
+- Claude Code with a Claude subscription (for `claude -p` calls)
+- No API keys needed
 
 ## Development
 
@@ -166,7 +108,6 @@ cd memoria-solo
 npm install
 npm run build
 npm test
-npm run dev    # start MCP server for testing
 ```
 
 ## License

@@ -66,6 +66,17 @@ vi.mock("os", () => {
   };
 });
 
+// Mock LLM calls
+vi.mock("../src/llm.js", () => ({
+  callClaude: vi.fn(),
+  callClaudeJson: vi.fn(),
+}));
+
+// Mock child_process for git commands in auto-checkpoint
+vi.mock("child_process", () => ({
+  execSync: vi.fn().mockReturnValue(""),
+}));
+
 // Mock store module — override getDefaultDbPath, initDatabase, saveDatabase
 // while keeping all the real CRUD functions
 vi.mock("../src/store.js", async () => {
@@ -101,9 +112,14 @@ import {
   handleImport,
   handleReset,
   handleUninstall,
+  handleSetup,
+  handleAutoCheckpoint,
   installCommands,
 } from "../src/cli.js";
+import { callClaudeJson } from "../src/llm.js";
 import os from "os";
+
+const mockCallClaudeJson = vi.mocked(callClaudeJson);
 
 const mockExistsSync = vi.mocked(existsSync);
 const mockInitDatabase = vi.mocked(mockInitDb);
@@ -737,6 +753,295 @@ describe("handleUninstall", () => {
 
     const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
     expect(output).toContain("Removed 0 slash commands");
+
+    errorSpy.mockRestore();
+  });
+
+  it("removes PreCompact hook from settings.json", async () => {
+    const settings = {
+      mcpServers: {
+        "memoria-solo": {
+          command: "npx",
+          args: ["-y", "memoria-solo", "serve"],
+        },
+      },
+      hooks: {
+        PreCompact: [
+          { type: "command", command: "npx -y memoria-solo auto-checkpoint" },
+        ],
+      },
+    };
+
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return true;
+      if (p === commandsDir) return false;
+      if (p === "/mock/home/.memoria-solo") return false;
+      return false;
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify(settings));
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleUninstall({ keepData: true });
+
+    const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
+    expect(written.hooks).toBeUndefined();
+
+    errorSpy.mockRestore();
+  });
+
+  it("preserves non-memoria PreCompact hooks during uninstall", async () => {
+    const settings = {
+      hooks: {
+        PreCompact: [
+          { type: "command", command: "npx -y memoria-solo auto-checkpoint" },
+          { type: "command", command: "npx other-tool pre-compact" },
+        ],
+      },
+    };
+
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return true;
+      if (p === commandsDir) return false;
+      if (p === "/mock/home/.memoria-solo") return false;
+      return false;
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify(settings));
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleUninstall({ keepData: true });
+
+    const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
+    expect(written.hooks.PreCompact).toHaveLength(1);
+    expect(written.hooks.PreCompact[0].command).toBe(
+      "npx other-tool pre-compact",
+    );
+
+    errorSpy.mockRestore();
+  });
+});
+
+// --- handleSetup ---
+
+describe("handleSetup", () => {
+  const settingsPath = "/mock/home/.claude/settings.json";
+
+  it("registers PreCompact hook in settings.json", async () => {
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return true;
+      return false;
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({}));
+    mockReaddirSync.mockReturnValue(
+      [] as unknown as ReturnType<typeof readdirSync>,
+    );
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleSetup();
+
+    const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
+    expect(written.hooks.PreCompact).toHaveLength(1);
+    expect(written.hooks.PreCompact[0].command).toContain(
+      "memoria-solo auto-checkpoint",
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  it("preserves existing hooks during setup", async () => {
+    const existing = {
+      hooks: {
+        Stop: [{ type: "command", command: "echo done" }],
+      },
+    };
+
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return true;
+      return false;
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify(existing));
+    mockReaddirSync.mockReturnValue(
+      [] as unknown as ReturnType<typeof readdirSync>,
+    );
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleSetup();
+
+    const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
+    expect(written.hooks.Stop).toHaveLength(1);
+    expect(written.hooks.Stop[0].command).toBe("echo done");
+    expect(written.hooks.PreCompact).toHaveLength(1);
+
+    errorSpy.mockRestore();
+  });
+
+  it("skips PreCompact hook if already registered", async () => {
+    const existing = {
+      hooks: {
+        PreCompact: [
+          { type: "command", command: "npx -y memoria-solo auto-checkpoint" },
+        ],
+      },
+    };
+
+    mockExistsSync.mockImplementation((p) => {
+      if (p === settingsPath) return true;
+      return false;
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify(existing));
+    mockReaddirSync.mockReturnValue(
+      [] as unknown as ReturnType<typeof readdirSync>,
+    );
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleSetup();
+
+    const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
+    // Should still have exactly 1, not duplicated
+    expect(written.hooks.PreCompact).toHaveLength(1);
+
+    errorSpy.mockRestore();
+  });
+});
+
+// --- handleAutoCheckpoint ---
+
+describe("handleAutoCheckpoint", () => {
+  it("saves checkpoint from transcript via LLM", async () => {
+    const metadata = {
+      input: {
+        metadata: {
+          transcript_path: "/tmp/test-transcript.txt",
+        },
+      },
+    };
+
+    // Mock stdin read
+    mockReadFileSync.mockImplementation((p: unknown) => {
+      if (p === 0) return JSON.stringify(metadata);
+      if (p === "/tmp/test-transcript.txt")
+        return "User asked to build auth module. Assistant built it.";
+      if (typeof p === "string" && p.endsWith("package.json")) {
+        const actual = vi.importActual<typeof import("fs")>("fs");
+        // Can't use async here, just return a minimal package.json
+        return '{"version":"2.0.0"}';
+      }
+      if (typeof p === "string" && p.endsWith("auto_checkpoint.txt"))
+        return "Extract: {TRANSCRIPT}";
+      return "";
+    });
+
+    mockCallClaudeJson.mockResolvedValue({
+      what_was_built: "Auth module",
+      current_state: "Tests passing",
+      next_steps: "Deploy",
+      decisions_made: "JWT",
+      blockers: "None",
+      plan_reference: null,
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleAutoCheckpoint();
+
+    expect(mockCallClaudeJson).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[memoria-solo] Auto-checkpoint saved before compaction",
+    );
+
+    // Verify checkpoint was saved to DB
+    const checkpoints = getAllCheckpoints(db);
+    expect(checkpoints).toHaveLength(1);
+    expect(checkpoints[0].what_was_built).toBe("Auth module");
+    expect(checkpoints[0].current_state).toBe("Tests passing");
+
+    errorSpy.mockRestore();
+  });
+
+  it("exits gracefully when no stdin data", async () => {
+    mockReadFileSync.mockImplementation((p: unknown) => {
+      if (p === 0) throw new Error("EOF");
+      if (typeof p === "string" && p.endsWith("package.json"))
+        return '{"version":"2.0.0"}';
+      return "";
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleAutoCheckpoint();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[memoria-solo] No stdin data, skipping auto-checkpoint",
+    );
+    expect(mockCallClaudeJson).not.toHaveBeenCalled();
+
+    errorSpy.mockRestore();
+  });
+
+  it("exits gracefully when transcript file not found", async () => {
+    const metadata = {
+      input: {
+        metadata: {
+          transcript_path: "/nonexistent/transcript.txt",
+        },
+      },
+    };
+
+    mockReadFileSync.mockImplementation((p: unknown) => {
+      if (p === 0) return JSON.stringify(metadata);
+      if (typeof p === "string" && p.endsWith("package.json"))
+        return '{"version":"2.0.0"}';
+      return "";
+    });
+    mockExistsSync.mockImplementation((p) => {
+      if (p === "/nonexistent/transcript.txt") return false;
+      return true;
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleAutoCheckpoint();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[memoria-solo] Transcript not found, skipping auto-checkpoint",
+    );
+    expect(mockCallClaudeJson).not.toHaveBeenCalled();
+
+    errorSpy.mockRestore();
+  });
+
+  it("exits gracefully when LLM call fails", async () => {
+    const metadata = {
+      input: {
+        metadata: {
+          transcript_path: "/tmp/test-transcript.txt",
+        },
+      },
+    };
+
+    mockReadFileSync.mockImplementation((p: unknown) => {
+      if (p === 0) return JSON.stringify(metadata);
+      if (p === "/tmp/test-transcript.txt") return "Some transcript content";
+      if (typeof p === "string" && p.endsWith("package.json"))
+        return '{"version":"2.0.0"}';
+      if (typeof p === "string" && p.endsWith("auto_checkpoint.txt"))
+        return "Extract: {TRANSCRIPT}";
+      return "";
+    });
+
+    mockCallClaudeJson.mockRejectedValue(new Error("LLM timeout"));
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleAutoCheckpoint();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[memoria-solo] Auto-checkpoint failed: LLM timeout",
+    );
 
     errorSpy.mockRestore();
   });

@@ -1,7 +1,7 @@
 {
   "name": "memoria-solo",
   "version": "1.0.7",
-  "description": "Persistent memory MCP server for Claude Code — cross-session knowledge via local SQLite",
+  "description": "Session lifecycle management for Claude Code",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,10 +20,10 @@
     "mcp",
     "claude",
     "claude-code",
-    "memory",
-    "sqlite",
-    "persistent-memory",
-    "ai-tools"
+    "session",
+    "checkpoint",
+    "resume",
+    "lifecycle"
   ],
   "engines": {
     "node": ">=18"
@@ -40,8 +40,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "commander": "^13.1.0",
-    "sql.js": "^1.12.0",
-    "zod": "^3.24.4"
+    "sql.js": "^1.12.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
