@@ -8,19 +8,15 @@ Restore context from last checkpoint at session start.
 
 3. Call the `get_checkpoint` MCP tool (latest by default, or by ID if the user specified one via $ARGUMENTS).
 
-4. Call the `get_goal` MCP tool for the active goal.
-
-5. Call the `get_insights` MCP tool with `since` set to the checkpoint's `created_at` timestamp.
-
-6. Capture current git state by running these bash commands:
+4. Capture current git state by running these bash commands:
    - `git branch --show-current`
    - `git status --short`
    - `git log --oneline -10`
    - `git diff --stat main...HEAD`
 
-7. If the checkpoint's current_state contains a plan reference (e.g. "PLAN.md Phase 3"), read the referenced file and extract the relevant section.
+5. If the checkpoint's current_state contains a plan reference (e.g. "PLAN.md Phase 3"), read the referenced file and extract the relevant section.
 
-8. Present the structured handover briefing:
+6. Present the structured handover briefing:
 
 ```
 ## Session Resume -- [Project Name] -- [DATE]
@@ -43,9 +39,6 @@ Resuming from checkpoint: [timestamp]
 ### Blockers
 [blockers from checkpoint -- or "None"]
 
-### Active Goal
-[goal intent and done_when criteria -- or "No active goal"]
-
 ### Active Plan Context
 [plan section content if referenced -- or "No active plan referenced"]
 
@@ -63,10 +56,6 @@ Resuming from checkpoint: [timestamp]
 ### Git Activity Since Checkpoint
 [Any NEW commits since the checkpoint timestamp that were NOT in git_snapshot]
 [If none: "No new commits since checkpoint"]
-
-### Insights Since Checkpoint
-[Insights from get_insights tool, time-ordered]
-[Or "None captured"]
 ```
 
-9. End with: "Ready to continue. The next step from your last session was: [next_steps]. Want me to pick that up, or are we doing something else?"
+7. End with: "Ready to continue. The next step from your last session was: [next_steps]. Want me to pick that up, or are we doing something else?"

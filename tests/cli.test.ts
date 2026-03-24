@@ -2,19 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import initSqlJs, { type Database } from "sql.js";
 import {
   initSchema,
-  insertMemory,
-  insertDeadEnd,
-  insertConstraint,
-  insertGoal,
-  insertInsight,
   insertCheckpoint,
-  insertExtractionLog,
+  insertDailySummary,
   countAll,
-  getMemoriesByProject,
-  getDeadEndsByProject,
-  getConstraintsByProject,
-  getInsightsByProject,
   listProjects,
+  getAllCheckpoints,
 } from "../src/store.js";
 
 // --- Mocks ---
@@ -104,7 +96,6 @@ import {
 } from "../src/store.js";
 import {
   handleStatus,
-  handleSearch,
   handleProjects,
   handleExport,
   handleImport,
@@ -146,10 +137,15 @@ afterEach(() => {
 
 describe("handleStatus", () => {
   it("prints counts and project info", async () => {
-    insertMemory(db, PROJECT, "decision", "Use SQLite", ["db"]);
-    insertMemory(db, PROJECT, "pattern", "Singleton pattern", ["design"]);
-    insertDeadEnd(db, PROJECT, "Redis", "Tried Redis", "Overkill");
-    insertConstraint(db, PROJECT, "No API keys", "security", "must");
+    insertCheckpoint(db, PROJECT, "sess-1", "Working", "Auth", "Tests");
+    insertCheckpoint(
+      db,
+      PROJECT,
+      "sess-2",
+      "Refactoring",
+      "DB layer",
+      "Deploy",
+    );
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
@@ -159,24 +155,7 @@ describe("handleStatus", () => {
     expect(output).toContain(`Project: ${PROJECT}`);
     expect(output).toContain("Database:");
     expect(output).toContain("Counts:");
-    expect(output).toContain("memories: 2");
-    expect(output).toContain("dead_ends: 1");
-    expect(output).toContain("constraints: 1");
-
-    logSpy.mockRestore();
-  });
-
-  it("prints last extraction info when available", async () => {
-    insertExtractionLog(db, PROJECT, "sess-1", "Stop", 3, 5);
-
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    await handleStatus({ project: PROJECT });
-
-    const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-    expect(output).toContain("Last extraction:");
-    expect(output).toContain("Stop");
-    expect(output).toContain("5 memories from 3 chunks");
+    expect(output).toContain("checkpoints: 2");
 
     logSpy.mockRestore();
   });
@@ -199,104 +178,21 @@ describe("handleStatus", () => {
   });
 });
 
-// --- handleSearch ---
-
-describe("handleSearch", () => {
-  it("finds memories matching query", async () => {
-    insertMemory(db, PROJECT, "decision", "Use SQLite for storage", ["db"]);
-    insertMemory(db, PROJECT, "pattern", "Singleton for config", ["design"]);
-    insertMemory(db, PROJECT, "decision", "REST over GraphQL", ["api"]);
-
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    await handleSearch("SQLite", { project: PROJECT });
-
-    const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-    expect(output).toContain("Use SQLite for storage");
-    expect(output).toContain("[decision]");
-    expect(output).toContain("1 result(s)");
-    expect(output).not.toContain("Singleton");
-    expect(output).not.toContain("GraphQL");
-
-    logSpy.mockRestore();
-  });
-
-  it("shows 'no memories found' when nothing matches", async () => {
-    insertMemory(db, PROJECT, "decision", "Use SQLite", ["db"]);
-
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    await handleSearch("nonexistent-query-xyz", { project: PROJECT });
-
-    const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-    expect(output).toContain("No memories found matching your query.");
-
-    logSpy.mockRestore();
-  });
-
-  it("filters by type when specified", async () => {
-    insertMemory(db, PROJECT, "decision", "Use SQLite for storage", ["db"]);
-    insertMemory(db, PROJECT, "pattern", "SQLite connection pooling", ["perf"]);
-
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    await handleSearch("SQLite", { project: PROJECT, type: "pattern" });
-
-    const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-    expect(output).toContain("[pattern]");
-    expect(output).toContain("SQLite connection pooling");
-    expect(output).toContain("1 result(s)");
-    expect(output).not.toContain("[decision]");
-
-    logSpy.mockRestore();
-  });
-
-  it("displays tags when present", async () => {
-    insertMemory(db, PROJECT, "decision", "Use SQLite for storage", [
-      "db",
-      "persistence",
-    ]);
-
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    await handleSearch("SQLite", { project: PROJECT });
-
-    const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-    expect(output).toContain("tags: db, persistence");
-
-    logSpy.mockRestore();
-  });
-
-  it("shows error when no database exists", async () => {
-    mockExistsSync.mockReturnValue(false);
-
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    await handleSearch("test", {});
-
-    expect(errorSpy).toHaveBeenCalledWith(
-      "No database found. Run 'memoria-solo setup' first.",
-    );
-
-    errorSpy.mockRestore();
-  });
-});
-
 // --- handleProjects ---
 
 describe("handleProjects", () => {
-  it("lists projects with memory counts", async () => {
-    insertMemory(db, "/proj-a", "decision", "Decision A");
-    insertMemory(db, "/proj-a", "pattern", "Pattern A");
-    insertMemory(db, "/proj-b", "decision", "Decision B");
+  it("lists projects with checkpoint counts", async () => {
+    insertCheckpoint(db, "/proj-a", "sess-1", "Working", "Auth", "Tests");
+    insertCheckpoint(db, "/proj-a", "sess-2", "Refactoring", "DB", "Deploy");
+    insertCheckpoint(db, "/proj-b", "sess-3", "Starting", "Setup", "Code");
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     await handleProjects();
 
     const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-    expect(output).toContain("/proj-a (2 memories)");
-    expect(output).toContain("/proj-b (1 memories)");
+    expect(output).toContain("/proj-a (2 checkpoints)");
+    expect(output).toContain("/proj-b (1 checkpoints)");
 
     logSpy.mockRestore();
   });
@@ -307,7 +203,7 @@ describe("handleProjects", () => {
     await handleProjects();
 
     const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-    expect(output).toContain("No projects with memories yet.");
+    expect(output).toContain("No projects with checkpoints yet.");
 
     logSpy.mockRestore();
   });
@@ -330,13 +226,12 @@ describe("handleProjects", () => {
 // --- handleExport ---
 
 describe("handleExport", () => {
-  it("exports all data as JSON with correct structure", async () => {
-    insertMemory(db, PROJECT, "decision", "Use SQLite", ["db"]);
-    insertDeadEnd(db, PROJECT, "Redis", "Tried Redis", "Overkill");
-    insertConstraint(db, PROJECT, "No API keys", "security", "must");
-    insertGoal(db, PROJECT, "Ship v1", ["pass tests"]);
+  it("exports checkpoints and daily summaries as JSON", async () => {
     insertCheckpoint(db, PROJECT, "sess-1", "Working", "Auth", "Tests");
-    insertInsight(db, PROJECT, "WASM is fast", "architecture");
+    insertDailySummary(db, PROJECT, "2025-01-01", {
+      commits: 5,
+      summary: "Good day",
+    });
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
@@ -345,51 +240,41 @@ describe("handleExport", () => {
     expect(logSpy).toHaveBeenCalledTimes(1);
     const exported = JSON.parse(logSpy.mock.calls[0][0]);
 
-    expect(exported.version).toBe(1);
+    expect(exported.version).toBe(2);
     expect(exported.exported_at).toBeDefined();
-    expect(exported.memories).toHaveLength(1);
-    expect(exported.memories[0].content).toBe("Use SQLite");
-    expect(exported.dead_ends).toHaveLength(1);
-    expect(exported.dead_ends[0].summary).toBe("Redis");
-    expect(exported.constraints).toHaveLength(1);
-    expect(exported.constraints[0].rule).toBe("No API keys");
-    expect(exported.goals).toHaveLength(1);
-    expect(exported.goals[0].intent).toBe("Ship v1");
     expect(exported.checkpoints).toHaveLength(1);
     expect(exported.checkpoints[0].current_state).toBe("Working");
-    expect(exported.insights).toHaveLength(1);
-    expect(exported.insights[0].content).toBe("WASM is fast");
-    expect(exported.daily_summaries).toHaveLength(0);
-    expect(exported.extraction_logs).toHaveLength(0);
+    expect(exported.daily_summaries).toHaveLength(1);
+    expect(exported.daily_summaries[0].summary.summary).toBe("Good day");
 
     logSpy.mockRestore();
   });
 
   it("exports only data for specified project", async () => {
-    insertMemory(db, "/proj-a", "decision", "Keep this");
-    insertMemory(db, "/proj-b", "decision", "Skip this");
+    insertCheckpoint(db, "/proj-a", "sess-1", "Working", "Auth", "Tests");
+    insertCheckpoint(db, "/proj-b", "sess-2", "Starting", "Setup", "Code");
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     await handleExport({ project: "/proj-a" });
 
     const exported = JSON.parse(logSpy.mock.calls[0][0]);
-    expect(exported.memories).toHaveLength(1);
-    expect(exported.memories[0].content).toBe("Keep this");
+    expect(exported.checkpoints).toHaveLength(1);
+    expect(exported.checkpoints[0].current_state).toBe("Working");
 
     logSpy.mockRestore();
   });
 
   it("exports all projects when no project filter specified", async () => {
-    insertMemory(db, "/proj-a", "decision", "A");
-    insertMemory(db, "/proj-b", "decision", "B");
+    insertCheckpoint(db, "/proj-a", "sess-1", "Working", "Auth", "Tests");
+    insertCheckpoint(db, "/proj-b", "sess-2", "Starting", "Setup", "Code");
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     await handleExport({});
 
     const exported = JSON.parse(logSpy.mock.calls[0][0]);
-    expect(exported.memories).toHaveLength(2);
+    expect(exported.checkpoints).toHaveLength(2);
 
     logSpy.mockRestore();
   });
@@ -412,77 +297,9 @@ describe("handleExport", () => {
 // --- handleImport ---
 
 describe("handleImport", () => {
-  it("imports memories from JSON file", async () => {
+  it("imports checkpoints from JSON file", async () => {
     const importData = {
-      version: 1,
-      memories: [
-        {
-          project_path: PROJECT,
-          type: "decision",
-          content: "Imported decision",
-          tags: ["imported"],
-          confidence: 0.9,
-        },
-      ],
-      dead_ends: [],
-      constraints: [],
-      goals: [],
-      checkpoints: [],
-      insights: [],
-    };
-
-    mockReadFileSync.mockReturnValue(JSON.stringify(importData));
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    await handleImport("/fake/path/export.json");
-
-    expect(errorSpy).toHaveBeenCalledWith("Imported 1 items.");
-    const memories = getMemoriesByProject(db, PROJECT);
-    expect(memories).toHaveLength(1);
-    expect(memories[0].content).toBe("Imported decision");
-    expect(memories[0].tags).toEqual(["imported"]);
-
-    errorSpy.mockRestore();
-  });
-
-  it("imports dead_ends, constraints, goals, checkpoints, and insights", async () => {
-    const importData = {
-      version: 1,
-      memories: [
-        {
-          project_path: PROJECT,
-          type: "decision",
-          content: "A decision",
-          tags: [],
-          confidence: 1.0,
-        },
-      ],
-      dead_ends: [
-        {
-          project_path: PROJECT,
-          summary: "Redis attempt",
-          approach_tried: "Tried Redis",
-          blocker: "Too complex",
-          resume_when: null,
-        },
-      ],
-      constraints: [
-        {
-          project_path: PROJECT,
-          rule: "No API keys",
-          type: "security",
-          severity: "must",
-          scope: null,
-          source: null,
-        },
-      ],
-      goals: [
-        {
-          project_path: PROJECT,
-          intent: "Ship v1",
-          done_when: ["all tests pass"],
-        },
-      ],
+      version: 2,
       checkpoints: [
         {
           project_path: PROJECT,
@@ -494,14 +311,7 @@ describe("handleImport", () => {
           decisions_made: "JWT",
           blockers: null,
           uncommitted_files: [],
-        },
-      ],
-      insights: [
-        {
-          project_path: PROJECT,
-          content: "WASM startup is fast",
-          category: "architecture",
-          context: null,
+          git_snapshot: "abc123 Initial commit",
         },
       ],
     };
@@ -511,11 +321,10 @@ describe("handleImport", () => {
 
     await handleImport("/fake/path/export.json");
 
-    expect(errorSpy).toHaveBeenCalledWith("Imported 6 items.");
-    expect(getMemoriesByProject(db, PROJECT)).toHaveLength(1);
-    expect(getDeadEndsByProject(db, PROJECT)).toHaveLength(1);
-    expect(getConstraintsByProject(db, PROJECT)).toHaveLength(1);
-    expect(getInsightsByProject(db, PROJECT)).toHaveLength(1);
+    expect(errorSpy).toHaveBeenCalledWith("Imported 1 items.");
+    const checkpoints = getAllCheckpoints(db, PROJECT);
+    expect(checkpoints).toHaveLength(1);
+    expect(checkpoints[0].current_state).toBe("Working on auth");
 
     errorSpy.mockRestore();
   });
@@ -549,7 +358,7 @@ describe("handleImport", () => {
   });
 
   it("imports zero items when arrays are missing", async () => {
-    const importData = { version: 1 };
+    const importData = { version: 2 };
 
     mockReadFileSync.mockReturnValue(JSON.stringify(importData));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -566,36 +375,31 @@ describe("handleImport", () => {
 
 describe("handleReset", () => {
   it("resets all data with --force flag", async () => {
-    insertMemory(db, "/proj-a", "decision", "A");
-    insertMemory(db, "/proj-b", "decision", "B");
-    insertDeadEnd(db, "/proj-a", "DE", "Tried", "Blocked");
+    insertCheckpoint(db, "/proj-a", "sess-1", "Working", "Auth", "Tests");
+    insertCheckpoint(db, "/proj-b", "sess-2", "Starting", "Setup", "Code");
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     await handleReset({ force: true });
 
     expect(errorSpy).toHaveBeenCalledWith("Reset all data.");
-    // deleteAllData was called on the db — verify counts are zero
     const counts = countAll(db);
-    expect(counts.memories).toBe(0);
-    expect(counts.dead_ends).toBe(0);
+    expect(counts.checkpoints).toBe(0);
 
     errorSpy.mockRestore();
   });
 
   it("resets only specified project data with --force flag", async () => {
-    insertMemory(db, "/proj-a", "decision", "Keep this");
-    insertMemory(db, "/proj-b", "decision", "Delete this");
-    insertDeadEnd(db, "/proj-b", "DE", "Tried", "Blocked");
+    insertCheckpoint(db, "/proj-a", "sess-1", "Keep this", "Auth", "Tests");
+    insertCheckpoint(db, "/proj-b", "sess-2", "Delete this", "Setup", "Code");
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     await handleReset({ project: "/proj-b", force: true });
 
     expect(errorSpy).toHaveBeenCalledWith("Reset data for project: /proj-b");
-    expect(getMemoriesByProject(db, "/proj-a")).toHaveLength(1);
-    expect(getMemoriesByProject(db, "/proj-b")).toHaveLength(0);
-    expect(getDeadEndsByProject(db, "/proj-b")).toHaveLength(0);
+    expect(getAllCheckpoints(db, "/proj-a")).toHaveLength(1);
+    expect(getAllCheckpoints(db, "/proj-b")).toHaveLength(0);
 
     errorSpy.mockRestore();
   });
@@ -715,28 +519,17 @@ describe("handleUninstall", () => {
   const settingsPath = "/mock/home/.claude/settings.json";
   const commandsDir = "/mock/home/.claude/commands";
 
-  it("removes hooks from settings.json that contain 'memoria-solo'", async () => {
+  it("removes MCP server from settings.json", async () => {
     const settings = {
-      hooks: {
-        Stop: [
-          {
-            matcher: "",
-            hooks: [
-              { type: "command", command: "memoria-solo extract --event stop" },
-            ],
-          },
-        ],
-        PreCompact: [
-          {
-            matcher: "",
-            hooks: [
-              {
-                type: "command",
-                command: "memoria-solo extract --event precompact",
-              },
-            ],
-          },
-        ],
+      mcpServers: {
+        "memoria-solo": {
+          command: "npx",
+          args: ["-y", "memoria-solo", "serve"],
+        },
+        "other-server": {
+          command: "node",
+          args: ["other.js"],
+        },
       },
     };
 
@@ -757,32 +550,20 @@ describe("handleUninstall", () => {
       expect.any(String),
     );
     const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
-    expect(written.hooks).toBeUndefined();
+    expect(written.mcpServers["memoria-solo"]).toBeUndefined();
+    expect(written.mcpServers["other-server"]).toBeDefined();
 
     errorSpy.mockRestore();
   });
 
-  it("preserves non-memoria-solo hooks in settings.json", async () => {
+  it("removes mcpServers key when empty after removal", async () => {
     const settings = {
-      hooks: {
-        Stop: [
-          {
-            matcher: "",
-            hooks: [
-              { type: "command", command: "memoria-solo extract --event stop" },
-            ],
-          },
-          {
-            matcher: "",
-            hooks: [{ type: "command", command: "other-tool do-stuff" }],
-          },
-        ],
-        SubAgentTurnEnd: [
-          {
-            matcher: "",
-            hooks: [{ type: "command", command: "some-other-hook run" }],
-          },
-        ],
+      someOtherSetting: true,
+      mcpServers: {
+        "memoria-solo": {
+          command: "npx",
+          args: ["-y", "memoria-solo", "serve"],
+        },
       },
     };
 
@@ -799,14 +580,8 @@ describe("handleUninstall", () => {
     await handleUninstall({ keepData: true });
 
     const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
-    // Stop should still have the other-tool entry
-    expect(written.hooks.Stop).toHaveLength(1);
-    expect(written.hooks.Stop[0].hooks[0].command).toBe("other-tool do-stuff");
-    // SubAgentTurnEnd should be preserved entirely
-    expect(written.hooks.SubAgentTurnEnd).toHaveLength(1);
-    expect(written.hooks.SubAgentTurnEnd[0].hooks[0].command).toBe(
-      "some-other-hook run",
-    );
+    expect(written.mcpServers).toBeUndefined();
+    expect(written.someOtherSetting).toBe(true);
 
     errorSpy.mockRestore();
   });
@@ -962,42 +737,6 @@ describe("handleUninstall", () => {
 
     const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
     expect(output).toContain("Removed 0 slash commands");
-
-    errorSpy.mockRestore();
-  });
-
-  it("cleans up empty hooks object from settings", async () => {
-    const settings = {
-      someOtherSetting: true,
-      hooks: {
-        Stop: [
-          {
-            matcher: "",
-            hooks: [
-              { type: "command", command: "memoria-solo extract --event stop" },
-            ],
-          },
-        ],
-      },
-    };
-
-    mockExistsSync.mockImplementation((p) => {
-      if (p === settingsPath) return true;
-      if (p === commandsDir) return false;
-      if (p === "/mock/home/.memoria-solo") return false;
-      return false;
-    });
-    mockReadFileSync.mockReturnValue(JSON.stringify(settings));
-
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    await handleUninstall({ keepData: true });
-
-    const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
-    // hooks key should be removed entirely when empty
-    expect(written.hooks).toBeUndefined();
-    // Other settings should be preserved
-    expect(written.someOtherSetting).toBe(true);
 
     errorSpy.mockRestore();
   });
