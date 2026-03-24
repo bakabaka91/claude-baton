@@ -1,6 +1,6 @@
 {
   "name": "memoria-solo",
-  "version": "1.0.7",
+  "version": "2.0.0",
   "description": "Session lifecycle management for Claude Code",
   "type": "module",
   "main": "dist/index.js",
