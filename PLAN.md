@@ -1,10 +1,10 @@
-# memoria-solo — Implementation Plan
+# claude-baton — Implementation Plan
 
 ## Context
 
 **Problem:** AI coding agents start every session with a blank slate. memory-mcp partially solves this with automatic extraction, but it's API-dependent (costs money), local-only, lacks session lifecycle tools, and doesn't track dead ends or constraints.
 
-**Solution:** memoria-solo — an open-source MCP server for Claude Code that combines:
+**Solution:** claude-baton — an open-source MCP server for Claude Code that combines:
 - memory-mcp's automatic extraction (but using `claude -p` instead of API — zero extra cost)
 - Memoria's richer data model (dead ends, constraints, goals)
 - The user's skill workflow (checkpoint/resume/insight/eod) absorbed as MCP tools
@@ -18,18 +18,18 @@
 
 | Decision | Choice |
 |----------|--------|
-| Name | memoria-solo |
+| Name | claude-baton |
 | Language | TypeScript (npm package) |
 | Storage | SQLite via sql.js (pure WASM, zero native deps) |
 | LLM engine | `claude -p` (subscription, no API key needed) |
 | Transport | stdio (standard MCP) |
-| Distribution | `npm install -g memoria-solo` |
+| Distribution | `npm install -g claude-baton` |
 | Data model | Full (decisions, dead ends, constraints, goals, checkpoints, insights, architecture, patterns, gotchas) |
 | Skills | Absorbed into MCP tools |
 
 ---
 
-## Data Model (SQLite tables in `~/.memoria-solo/store.db`)
+## Data Model (SQLite tables in `~/.claude-baton/store.db`)
 
 ### memories
 - id, project_path, type (architecture|decision|pattern|gotcha|progress|context), content, tags (JSON), confidence, access_count, status (active|archived|superseded), supersedes_id, created_at, updated_at
@@ -91,7 +91,7 @@
 
 ## Hooks (automatic, silent)
 
-Configured in `~/.claude/settings.json` during `memoria-solo setup`:
+Configured in `~/.claude/settings.json` during `claude-baton setup`:
 
 - **Stop** — extract memories from session transcript
 - **PreCompact** — auto-checkpoint before context compaction
@@ -139,20 +139,20 @@ Token budget: ~200 lines, allocated by priority (constraints > dead ends > decis
 
 ## CLI Commands
 
-- `memoria-solo setup` — configure hooks, create ~/.memoria-solo/, init SQLite
-- `memoria-solo status` — memory counts, last extraction, db size
-- `memoria-solo search <query>` — search from terminal
-- `memoria-solo projects` — list tracked projects
-- `memoria-solo export [project]` — export as JSON
-- `memoria-solo import <file>` — import from JSON
-- `memoria-solo reset [project]` — clear memories for a project
+- `claude-baton setup` — configure hooks, create ~/.claude-baton/, init SQLite
+- `claude-baton status` — memory counts, last extraction, db size
+- `claude-baton search <query>` — search from terminal
+- `claude-baton projects` — list tracked projects
+- `claude-baton export [project]` — export as JSON
+- `claude-baton import <file>` — import from JSON
+- `claude-baton reset [project]` — clear memories for a project
 
 ---
 
 ## Project Structure
 
 ```
-memoria-solo/
+claude-baton/
 ├── package.json
 ├── tsconfig.json
 ├── README.md
@@ -178,14 +178,14 @@ memoria-solo/
 │   ├── claude-md.test.ts
 │   └── cli.test.ts
 └── bin/
-    └── memoria-solo.js   — CLI entry point
+    └── claude-baton.js   — CLI entry point
 ```
 
 ---
 
 ## Key Differentiators vs memory-mcp
 
-| Feature | memory-mcp | memoria-solo |
+| Feature | memory-mcp | claude-baton |
 |---------|-----------|--------------|
 | LLM engine | Anthropic API ($) | claude -p (subscription, free) |
 | Dead end tracking | No | Yes |
@@ -255,11 +255,11 @@ memoria-solo/
 
 ## Verification
 
-1. `npm install -g memoria-solo` succeeds on macOS/Linux/Windows
-2. `memoria-solo setup` configures hooks in settings.json
+1. `npm install -g claude-baton` succeeds on macOS/Linux/Windows
+2. `claude-baton setup` configures hooks in settings.json
 3. Start a Claude Code session → Stop → verify memories extracted to SQLite
 4. `/checkpoint` → close session → new session → `/resume` returns context
-5. `memoria-solo search "auth"` returns relevant cross-project results
+5. `claude-baton search "auth"` returns relevant cross-project results
 6. CLAUDE.md shows managed block with constraints before decisions
 7. `check_dead_ends("try approach X")` warns if X was already tried
 8. `daily_summary()` generates coherent EOD from day's activity

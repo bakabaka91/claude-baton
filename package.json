@@ -1,12 +1,12 @@
 {
-  "name": "memoria-solo",
+  "name": "claude-baton",
   "version": "2.0.1",
   "description": "Session lifecycle management for Claude Code",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "memoria-solo": "bin/memoria-solo.js"
+    "claude-baton": "bin/claude-baton.js"
   },
   "files": [
     "dist",
@@ -51,10 +51,10 @@
   "author": "bakabaka91",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bakabaka91/memoria-solo.git"
+    "url": "git+https://github.com/bakabaka91/claude-baton.git"
   },
-  "homepage": "https://github.com/bakabaka91/memoria-solo#readme",
+  "homepage": "https://github.com/bakabaka91/claude-baton#readme",
   "bugs": {
-    "url": "https://github.com/bakabaka91/memoria-solo/issues"
+    "url": "https://github.com/bakabaka91/claude-baton/issues"
   }
 }

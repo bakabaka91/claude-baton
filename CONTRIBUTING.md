@@ -1,12 +1,12 @@
-# Contributing to memoria-solo
+# Contributing to claude-baton
 
 Thanks for your interest in contributing! Here's how to get started.
 
 ## Development setup
 
 ```bash
-git clone https://github.com/bakabaka91/memoria-solo.git
-cd memoria-solo
+git clone https://github.com/bakabaka91/claude-baton.git
+cd claude-baton
 npm install
 npm run build
 npm test
@@ -34,7 +34,7 @@ These are non-negotiable project rules:
 - **No API keys** — all LLM calls via `claude -p`
 - **sql.js only** — no native SQLite bindings
 - **stdio transport** — standard MCP, not SSE
-- **Single SQLite DB** — `~/.memoria-solo/store.db`, never per-project files
+- **Single SQLite DB** — `~/.claude-baton/store.db`, never per-project files
 
 ## Code style
 
@@ -46,7 +46,7 @@ These are non-negotiable project rules:
 
 ## Reporting bugs
 
-Open an issue at https://github.com/bakabaka91/memoria-solo/issues with:
+Open an issue at https://github.com/bakabaka91/claude-baton/issues with:
 
 - Steps to reproduce
 - Expected vs actual behavior

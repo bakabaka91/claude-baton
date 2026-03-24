@@ -1,4 +1,4 @@
-# sql.js Patterns for memoria-solo
+# sql.js Patterns for claude-baton
 
 ## Initialization
 
@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import os from 'os';
 
-const dbPath = path.join(os.homedir(), '.memoria-solo', 'store.db');
+const dbPath = path.join(os.homedir(), '.claude-baton', 'store.db');
 let db: Database;
 
 if (existsSync(dbPath)) {

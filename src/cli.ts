@@ -62,7 +62,7 @@ export async function handleAutoCheckpoint(): Promise<void> {
     try {
       stdinData = readFileSync(0, "utf-8");
     } catch {
-      console.error("[memoria-solo] No stdin data, skipping auto-checkpoint");
+      console.error("[claude-baton] No stdin data, skipping auto-checkpoint");
       return;
     }
 
@@ -72,14 +72,14 @@ export async function handleAutoCheckpoint(): Promise<void> {
       transcriptPath = metadata?.input?.metadata?.transcript_path;
     } catch {
       console.error(
-        "[memoria-solo] Could not parse hook metadata, skipping auto-checkpoint",
+        "[claude-baton] Could not parse hook metadata, skipping auto-checkpoint",
       );
       return;
     }
 
     if (!transcriptPath || !existsSync(transcriptPath)) {
       console.error(
-        "[memoria-solo] Transcript not found, skipping auto-checkpoint",
+        "[claude-baton] Transcript not found, skipping auto-checkpoint",
       );
       return;
     }
@@ -136,10 +136,10 @@ export async function handleAutoCheckpoint(): Promise<void> {
       dbPath,
     );
 
-    console.error("[memoria-solo] Auto-checkpoint saved before compaction");
+    console.error("[claude-baton] Auto-checkpoint saved before compaction");
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[memoria-solo] Auto-checkpoint failed: ${msg}`);
+    console.error(`[claude-baton] Auto-checkpoint failed: ${msg}`);
     // Exit gracefully — don't block compaction
   }
 }
@@ -162,9 +162,9 @@ export async function handleSetup(): Promise<void> {
 
   // Register MCP server
   const mcpServers = (settings.mcpServers ?? {}) as Record<string, unknown>;
-  mcpServers["memoria-solo"] = {
+  mcpServers["claude-baton"] = {
     command: "npx",
-    args: ["-y", "memoria-solo", "serve"],
+    args: ["-y", "claude-baton", "serve"],
   };
   settings.mcpServers = mcpServers;
 
@@ -174,12 +174,12 @@ export async function handleSetup(): Promise<void> {
     Record<string, string>
   >;
   const hasMemoriaHook = preCompactHooks.some(
-    (h) => h.command && h.command.includes("memoria-solo"),
+    (h) => h.command && h.command.includes("claude-baton"),
   );
   if (!hasMemoriaHook) {
     preCompactHooks.push({
       type: "command",
-      command: "npx -y memoria-solo auto-checkpoint",
+      command: "npx -y claude-baton auto-checkpoint",
     });
     hooks.PreCompact = preCompactHooks;
     settings.hooks = hooks;
@@ -245,9 +245,9 @@ export async function handleUninstall(opts: {
       if (
         settings.mcpServers &&
         typeof settings.mcpServers === "object" &&
-        (settings.mcpServers as Record<string, unknown>)["memoria-solo"]
+        (settings.mcpServers as Record<string, unknown>)["claude-baton"]
       ) {
-        delete (settings.mcpServers as Record<string, unknown>)["memoria-solo"];
+        delete (settings.mcpServers as Record<string, unknown>)["claude-baton"];
         if (Object.keys(settings.mcpServers).length === 0) {
           delete settings.mcpServers;
         }
@@ -263,7 +263,7 @@ export async function handleUninstall(opts: {
         const hooksObj = settings.hooks as Record<string, unknown>;
         const preCompact = hooksObj.PreCompact as Array<Record<string, string>>;
         const filtered = preCompact.filter(
-          (h) => !h.command || !h.command.includes("memoria-solo"),
+          (h) => !h.command || !h.command.includes("claude-baton"),
         );
         if (filtered.length === 0) {
           delete hooksObj.PreCompact;
@@ -297,11 +297,11 @@ export async function handleUninstall(opts: {
   console.error(`  Removed ${commandsRemoved} slash commands`);
 
   // 3. Optionally remove database
-  const dbDir = path.join(os.homedir(), ".memoria-solo");
+  const dbDir = path.join(os.homedir(), ".claude-baton");
   if (!opts.keepData && existsSync(dbDir)) {
     if (!opts.force) {
       const answer = await askConfirmation(
-        "  Delete database (~/.memoria-solo)? This cannot be undone. [y/N] ",
+        "  Delete database (~/.claude-baton)? This cannot be undone. [y/N] ",
       );
       if (answer.toLowerCase() !== "y") {
         console.error("  Kept database.");
@@ -316,7 +316,7 @@ export async function handleUninstall(opts: {
   }
 
   console.error(
-    "Uninstall complete. Run 'npm uninstall -g memoria-solo' to remove the binary.",
+    "Uninstall complete. Run 'npm uninstall -g claude-baton' to remove the binary.",
   );
 }
 
@@ -325,7 +325,7 @@ export async function handleUninstall(opts: {
 export async function handleStatus(opts: { project?: string }): Promise<void> {
   const dbPath = getDefaultDbPath();
   if (!existsSync(dbPath)) {
-    console.error("No database found. Run 'memoria-solo setup' first.");
+    console.error("No database found. Run 'claude-baton setup' first.");
     return;
   }
 
@@ -348,7 +348,7 @@ export async function handleStatus(opts: { project?: string }): Promise<void> {
 export async function handleProjects(): Promise<void> {
   const dbPath = getDefaultDbPath();
   if (!existsSync(dbPath)) {
-    console.error("No database found. Run 'memoria-solo setup' first.");
+    console.error("No database found. Run 'claude-baton setup' first.");
     return;
   }
 
@@ -370,7 +370,7 @@ export async function handleProjects(): Promise<void> {
 export async function handleExport(opts: { project?: string }): Promise<void> {
   const dbPath = getDefaultDbPath();
   if (!existsSync(dbPath)) {
-    console.error("No database found. Run 'memoria-solo setup' first.");
+    console.error("No database found. Run 'claude-baton setup' first.");
     return;
   }
 
@@ -483,7 +483,7 @@ const pkg = JSON.parse(
 const program = new Command();
 
 program
-  .name("memoria-solo")
+  .name("claude-baton")
   .description("Session lifecycle management for Claude Code")
   .version(pkg.version);
 
@@ -507,7 +507,7 @@ program
 program
   .command("uninstall")
   .description("Remove MCP server, slash commands, and optionally the database")
-  .option("--keep-data", "Keep the database (~/.memoria-solo)")
+  .option("--keep-data", "Keep the database (~/.claude-baton)")
   .option("--force", "Skip confirmation for database deletion")
   .action((opts) => handleUninstall(opts));
 

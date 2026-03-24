@@ -96,7 +96,7 @@ case "memory_stats": {
 
 **File**: `src/cli.ts` — `handleImport()` (lines 433-534)
 
-**Trigger**: User runs `memoria-solo export` then `memoria-solo import` (machine migration, backup/restore, sharing).
+**Trigger**: User runs `claude-baton export` then `claude-baton import` (machine migration, backup/restore, sharing).
 
 `handleImport` calls insert helper functions (`insertGoal`, `insertMemory`, etc.) which generate new IDs, new timestamps, and hardcode default statuses. The original field values from the export JSON are silently discarded.
 

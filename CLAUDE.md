@@ -1,4 +1,4 @@
-# memoria-solo — Development Guide
+# claude-baton — Development Guide
 
 ## What is this?
 Session lifecycle management for Claude Code — checkpoint, resume, and EOD summaries via local SQLite. See PLAN.md for full spec.
@@ -21,11 +21,11 @@ npm run dev          # start MCP server (stdio)
 - `prompts/` — Auto-checkpoint, daily summary prompt templates
 - `commands/` — Slash command files (memo-checkpoint, memo-resume, memo-eod)
 - `tests/` — Test suite
-- `bin/memoria-solo.js` — CLI entry point
+- `bin/claude-baton.js` — CLI entry point
 
 ## Non-negotiable constraints
 1. **Never touch git branches** — no snapshots, no switching, no creating branches
-2. **Single SQLite DB** — all projects in `~/.memoria-solo/store.db`, never per-project files
+2. **Single SQLite DB** — all projects in `~/.claude-baton/store.db`, never per-project files
 3. **stdio transport** — standard MCP, not SSE
 4. **Zero API keys** — all LLM calls via `claude -p`, never import anthropic SDK
 5. **3 dependencies max** — `@modelcontextprotocol/sdk`, `sql.js`, `commander`
@@ -62,7 +62,7 @@ When working on code, use the scoped agent for that domain. Never let one agent 
 
 ## Slash commands (shipped with product)
 
-Installed to `~/.claude/commands/` during `memoria-solo setup`.
+Installed to `~/.claude/commands/` during `claude-baton setup`.
 
 | Command | Purpose |
 |---|---|
@@ -73,7 +73,7 @@ Installed to `~/.claude/commands/` during `memoria-solo setup`.
 ## Releasing & versioning
 
 - **Version source of truth**: `package.json` only. The CLI reads it at runtime — never hardcode versions elsewhere.
-- **npm published**: package is `memoria-solo` on npmjs.com, owned by `santoshus`.
+- **npm published**: package is `claude-baton` on npmjs.com, owned by `santoshus`.
 
 **To release a new version:**
 ```bash

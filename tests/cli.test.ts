@@ -185,7 +185,7 @@ describe("handleStatus", () => {
     await handleStatus({});
 
     expect(errorSpy).toHaveBeenCalledWith(
-      "No database found. Run 'memoria-solo setup' first.",
+      "No database found. Run 'claude-baton setup' first.",
     );
     expect(logSpy).not.toHaveBeenCalled();
 
@@ -232,7 +232,7 @@ describe("handleProjects", () => {
     await handleProjects();
 
     expect(errorSpy).toHaveBeenCalledWith(
-      "No database found. Run 'memoria-solo setup' first.",
+      "No database found. Run 'claude-baton setup' first.",
     );
 
     errorSpy.mockRestore();
@@ -303,7 +303,7 @@ describe("handleExport", () => {
     await handleExport({});
 
     expect(errorSpy).toHaveBeenCalledWith(
-      "No database found. Run 'memoria-solo setup' first.",
+      "No database found. Run 'claude-baton setup' first.",
     );
 
     errorSpy.mockRestore();
@@ -538,9 +538,9 @@ describe("handleUninstall", () => {
   it("removes MCP server from settings.json", async () => {
     const settings = {
       mcpServers: {
-        "memoria-solo": {
+        "claude-baton": {
           command: "npx",
-          args: ["-y", "memoria-solo", "serve"],
+          args: ["-y", "claude-baton", "serve"],
         },
         "other-server": {
           command: "node",
@@ -552,7 +552,7 @@ describe("handleUninstall", () => {
     mockExistsSync.mockImplementation((p) => {
       if (p === settingsPath) return true;
       if (p === commandsDir) return false;
-      if (p === "/mock/home/.memoria-solo") return false;
+      if (p === "/mock/home/.claude-baton") return false;
       return false;
     });
     mockReadFileSync.mockReturnValue(JSON.stringify(settings));
@@ -566,7 +566,7 @@ describe("handleUninstall", () => {
       expect.any(String),
     );
     const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
-    expect(written.mcpServers["memoria-solo"]).toBeUndefined();
+    expect(written.mcpServers["claude-baton"]).toBeUndefined();
     expect(written.mcpServers["other-server"]).toBeDefined();
 
     errorSpy.mockRestore();
@@ -576,9 +576,9 @@ describe("handleUninstall", () => {
     const settings = {
       someOtherSetting: true,
       mcpServers: {
-        "memoria-solo": {
+        "claude-baton": {
           command: "npx",
-          args: ["-y", "memoria-solo", "serve"],
+          args: ["-y", "claude-baton", "serve"],
         },
       },
     };
@@ -586,7 +586,7 @@ describe("handleUninstall", () => {
     mockExistsSync.mockImplementation((p) => {
       if (p === settingsPath) return true;
       if (p === commandsDir) return false;
-      if (p === "/mock/home/.memoria-solo") return false;
+      if (p === "/mock/home/.claude-baton") return false;
       return false;
     });
     mockReadFileSync.mockReturnValue(JSON.stringify(settings));
@@ -606,7 +606,7 @@ describe("handleUninstall", () => {
     mockExistsSync.mockImplementation((p) => {
       if (p === settingsPath) return false;
       if (p === commandsDir) return true;
-      if (p === "/mock/home/.memoria-solo") return false;
+      if (p === "/mock/home/.claude-baton") return false;
       return false;
     });
     mockReaddirSync.mockReturnValue([
@@ -642,7 +642,7 @@ describe("handleUninstall", () => {
     mockExistsSync.mockImplementation((p) => {
       if (p === settingsPath) return false;
       if (p === commandsDir) return true;
-      if (p === "/mock/home/.memoria-solo") return false;
+      if (p === "/mock/home/.claude-baton") return false;
       return false;
     });
     mockReaddirSync.mockReturnValue([
@@ -670,7 +670,7 @@ describe("handleUninstall", () => {
   });
 
   it("deletes database directory with --force", async () => {
-    const dbDir = "/mock/home/.memoria-solo";
+    const dbDir = "/mock/home/.claude-baton";
 
     mockExistsSync.mockImplementation((p) => {
       if (p === settingsPath) return false;
@@ -692,7 +692,7 @@ describe("handleUninstall", () => {
   });
 
   it("keeps database with --keep-data", async () => {
-    const dbDir = "/mock/home/.memoria-solo";
+    const dbDir = "/mock/home/.claude-baton";
 
     mockExistsSync.mockImplementation((p) => {
       if (p === settingsPath) return false;
@@ -717,7 +717,7 @@ describe("handleUninstall", () => {
     mockExistsSync.mockImplementation((p) => {
       if (p === settingsPath) return false;
       if (p === commandsDir) return false;
-      if (p === "/mock/home/.memoria-solo") return false;
+      if (p === "/mock/home/.claude-baton") return false;
       return false;
     });
 
@@ -740,7 +740,7 @@ describe("handleUninstall", () => {
     mockExistsSync.mockImplementation((p) => {
       if (p === settingsPath) return false;
       if (p === commandsDir) return false;
-      if (p === "/mock/home/.memoria-solo") return false;
+      if (p === "/mock/home/.claude-baton") return false;
       return false;
     });
 
@@ -760,14 +760,14 @@ describe("handleUninstall", () => {
   it("removes PreCompact hook from settings.json", async () => {
     const settings = {
       mcpServers: {
-        "memoria-solo": {
+        "claude-baton": {
           command: "npx",
-          args: ["-y", "memoria-solo", "serve"],
+          args: ["-y", "claude-baton", "serve"],
         },
       },
       hooks: {
         PreCompact: [
-          { type: "command", command: "npx -y memoria-solo auto-checkpoint" },
+          { type: "command", command: "npx -y claude-baton auto-checkpoint" },
         ],
       },
     };
@@ -775,7 +775,7 @@ describe("handleUninstall", () => {
     mockExistsSync.mockImplementation((p) => {
       if (p === settingsPath) return true;
       if (p === commandsDir) return false;
-      if (p === "/mock/home/.memoria-solo") return false;
+      if (p === "/mock/home/.claude-baton") return false;
       return false;
     });
     mockReadFileSync.mockReturnValue(JSON.stringify(settings));
@@ -794,7 +794,7 @@ describe("handleUninstall", () => {
     const settings = {
       hooks: {
         PreCompact: [
-          { type: "command", command: "npx -y memoria-solo auto-checkpoint" },
+          { type: "command", command: "npx -y claude-baton auto-checkpoint" },
           { type: "command", command: "npx other-tool pre-compact" },
         ],
       },
@@ -803,7 +803,7 @@ describe("handleUninstall", () => {
     mockExistsSync.mockImplementation((p) => {
       if (p === settingsPath) return true;
       if (p === commandsDir) return false;
-      if (p === "/mock/home/.memoria-solo") return false;
+      if (p === "/mock/home/.claude-baton") return false;
       return false;
     });
     mockReadFileSync.mockReturnValue(JSON.stringify(settings));
@@ -844,7 +844,7 @@ describe("handleSetup", () => {
     const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
     expect(written.hooks.PreCompact).toHaveLength(1);
     expect(written.hooks.PreCompact[0].command).toContain(
-      "memoria-solo auto-checkpoint",
+      "claude-baton auto-checkpoint",
     );
 
     errorSpy.mockRestore();
@@ -882,7 +882,7 @@ describe("handleSetup", () => {
     const existing = {
       hooks: {
         PreCompact: [
-          { type: "command", command: "npx -y memoria-solo auto-checkpoint" },
+          { type: "command", command: "npx -y claude-baton auto-checkpoint" },
         ],
       },
     };
@@ -950,7 +950,7 @@ describe("handleAutoCheckpoint", () => {
 
     expect(mockCallClaudeJson).toHaveBeenCalledTimes(1);
     expect(errorSpy).toHaveBeenCalledWith(
-      "[memoria-solo] Auto-checkpoint saved before compaction",
+      "[claude-baton] Auto-checkpoint saved before compaction",
     );
 
     // Verify checkpoint was saved to DB
@@ -975,7 +975,7 @@ describe("handleAutoCheckpoint", () => {
     await handleAutoCheckpoint();
 
     expect(errorSpy).toHaveBeenCalledWith(
-      "[memoria-solo] No stdin data, skipping auto-checkpoint",
+      "[claude-baton] No stdin data, skipping auto-checkpoint",
     );
     expect(mockCallClaudeJson).not.toHaveBeenCalled();
 
@@ -1007,7 +1007,7 @@ describe("handleAutoCheckpoint", () => {
     await handleAutoCheckpoint();
 
     expect(errorSpy).toHaveBeenCalledWith(
-      "[memoria-solo] Transcript not found, skipping auto-checkpoint",
+      "[claude-baton] Transcript not found, skipping auto-checkpoint",
     );
     expect(mockCallClaudeJson).not.toHaveBeenCalled();
 
@@ -1040,7 +1040,7 @@ describe("handleAutoCheckpoint", () => {
     await handleAutoCheckpoint();
 
     expect(errorSpy).toHaveBeenCalledWith(
-      "[memoria-solo] Auto-checkpoint failed: LLM timeout",
+      "[claude-baton] Auto-checkpoint failed: LLM timeout",
     );
 
     errorSpy.mockRestore();

@@ -33,7 +33,7 @@ export function saveDatabase(db: Database, dbPath: string): void {
 }
 
 export function getDefaultDbPath(): string {
-  return path.join(os.homedir(), ".memoria-solo", "store.db");
+  return path.join(os.homedir(), ".claude-baton", "store.db");
 }
 
 export function initSchema(db: Database): void {

@@ -1,8 +1,8 @@
-# memoria-solo
+# claude-baton
 
 Never lose context between Claude Code sessions again.
 
-memoria-solo is an MCP server that gives Claude Code session continuity. It saves checkpoints of your session state, auto-saves before context compaction, and restores full context when you start a new session.
+claude-baton is an MCP server that gives Claude Code session continuity. It saves checkpoints of your session state, auto-saves before context compaction, and restores full context when you start a new session.
 
 ## Workflow
 
@@ -17,19 +17,19 @@ memoria-solo is an MCP server that gives Claude Code session continuity. It save
 ## Install
 
 ```bash
-npm install -g memoria-solo
+npm install -g claude-baton
 ```
 
 ## Setup
 
 ```bash
-memoria-solo setup
+claude-baton setup
 ```
 
 This:
 - Registers the MCP server in `~/.claude/settings.json`
 - Registers the PreCompact hook for auto-checkpoint
-- Initializes the SQLite database at `~/.memoria-solo/store.db`
+- Initializes the SQLite database at `~/.claude-baton/store.db`
 - Installs slash commands to `~/.claude/commands/`
 
 ## MCP Tools
@@ -66,30 +66,30 @@ A PreCompact hook automatically saves a checkpoint before Claude Code compacts c
 ## CLI Commands
 
 ```bash
-memoria-solo status              # checkpoint counts, db size
-memoria-solo projects            # list tracked projects
-memoria-solo export [--project]  # export as JSON
-memoria-solo import <file>       # import from JSON
-memoria-solo reset [--project]   # clear data (with confirmation)
-memoria-solo uninstall           # remove hooks, commands, MCP server, and database
-memoria-solo uninstall --keep-data  # uninstall but preserve the database
+claude-baton status              # checkpoint counts, db size
+claude-baton projects            # list tracked projects
+claude-baton export [--project]  # export as JSON
+claude-baton import <file>       # import from JSON
+claude-baton reset [--project]   # clear data (with confirmation)
+claude-baton uninstall           # remove hooks, commands, MCP server, and database
+claude-baton uninstall --keep-data  # uninstall but preserve the database
 ```
 
 ## Uninstall
 
 ```bash
 # Remove hooks, MCP server, slash commands, and database
-memoria-solo uninstall
+claude-baton uninstall
 
 # Remove the binary
-npm uninstall -g memoria-solo
+npm uninstall -g claude-baton
 ```
 
-To keep your data: `memoria-solo uninstall --keep-data`
+To keep your data: `claude-baton uninstall --keep-data`
 
 ## Data model
 
-All data lives in `~/.memoria-solo/store.db`:
+All data lives in `~/.claude-baton/store.db`:
 
 - **checkpoints** — session state snapshots (what was built, current state, next steps, decisions, blockers, git context)
 - **daily_summaries** — LLM-generated EOD summaries
@@ -103,8 +103,8 @@ All data lives in `~/.memoria-solo/store.db`:
 ## Development
 
 ```bash
-git clone https://github.com/bakabaka91/memoria-solo.git
-cd memoria-solo
+git clone https://github.com/bakabaka91/claude-baton.git
+cd claude-baton
 npm install
 npm run build
 npm test

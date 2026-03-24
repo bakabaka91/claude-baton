@@ -76,7 +76,7 @@ class ValidationError extends Error {
 }
 
 const server = new Server(
-  { name: "memoria-solo", version: "1.0.0" },
+  { name: "claude-baton", version: "1.0.0" },
   { capabilities: { tools: {} } },
 );
 

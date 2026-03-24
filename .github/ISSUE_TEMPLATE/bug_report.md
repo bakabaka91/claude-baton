@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a bug in memoria-solo
+about: Report a bug in claude-baton
 title: ""
 labels: bug
 assignees: ""
@@ -20,7 +20,7 @@ What you expected to happen.
 **Environment**
 - Node.js version:
 - OS:
-- memoria-solo version:
+- claude-baton version:
 
 **Additional context**
 Any other context, error messages, or logs.
