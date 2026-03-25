@@ -156,30 +156,49 @@ export async function handleSetup(): Promise<void> {
     try {
       settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
     } catch {
-      settings = {};
+      console.error(
+        "Error: could not parse ~/.claude/settings.json. Fix the file manually and re-run setup.",
+      );
+      return;
     }
   }
 
-  // Register MCP server
+  // Register MCP server — use direct node invocation to avoid npx stdio
+  // interference that can break Claude Code statusline rendering
   const mcpServers = (settings.mcpServers ?? {}) as Record<string, unknown>;
+  const serverScript = path.resolve(__dirname, "..", "bin", "claude-baton.js");
   mcpServers["claude-baton"] = {
-    command: "npx",
-    args: ["-y", "claude-baton", "serve"],
+    command: "node",
+    args: [serverScript, "serve"],
   };
   settings.mcpServers = mcpServers;
 
   // Register PreCompact hook (idempotent — skip if already present)
   const hooks = (settings.hooks ?? {}) as Record<string, unknown>;
   const preCompactHooks = (hooks.PreCompact ?? []) as Array<
-    Record<string, string>
+    Record<string, unknown>
   >;
-  const hasMemoriaHook = preCompactHooks.some(
-    (h) => h.command && h.command.includes("claude-baton"),
+  const hasBatonHook = preCompactHooks.some((h) =>
+    Array.isArray(h.hooks) &&
+    (h.hooks as Array<Record<string, string>>).some(
+      (hook) => hook.command?.includes("claude-baton"),
+    ),
   );
-  if (!hasMemoriaHook) {
+  if (!hasBatonHook) {
+    const autoCheckpointBin = path.resolve(
+      __dirname,
+      "..",
+      "bin",
+      "claude-baton.js",
+    );
     preCompactHooks.push({
-      type: "command",
-      command: "npx -y claude-baton auto-checkpoint",
+      matcher: "",
+      hooks: [
+        {
+          type: "command",
+          command: `node ${autoCheckpointBin} auto-checkpoint`,
+        },
+      ],
     });
     hooks.PreCompact = preCompactHooks;
     settings.hooks = hooks;
@@ -261,9 +280,13 @@ export async function handleUninstall(opts: {
         (settings.hooks as Record<string, unknown>).PreCompact
       ) {
         const hooksObj = settings.hooks as Record<string, unknown>;
-        const preCompact = hooksObj.PreCompact as Array<Record<string, string>>;
+        const preCompact = hooksObj.PreCompact as Array<Record<string, unknown>>;
         const filtered = preCompact.filter(
-          (h) => !h.command || !h.command.includes("claude-baton"),
+          (h) =>
+            !Array.isArray(h.hooks) ||
+            !(h.hooks as Array<Record<string, string>>).some(
+              (hook) => hook.command?.includes("claude-baton"),
+            ),
         );
         if (filtered.length === 0) {
           delete hooksObj.PreCompact;

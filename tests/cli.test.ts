@@ -767,7 +767,12 @@ describe("handleUninstall", () => {
       },
       hooks: {
         PreCompact: [
-          { type: "command", command: "npx -y claude-baton auto-checkpoint" },
+          {
+            matcher: "",
+            hooks: [
+              { type: "command", command: "npx -y claude-baton auto-checkpoint" },
+            ],
+          },
         ],
       },
     };
@@ -794,8 +799,18 @@ describe("handleUninstall", () => {
     const settings = {
       hooks: {
         PreCompact: [
-          { type: "command", command: "npx -y claude-baton auto-checkpoint" },
-          { type: "command", command: "npx other-tool pre-compact" },
+          {
+            matcher: "",
+            hooks: [
+              { type: "command", command: "npx -y claude-baton auto-checkpoint" },
+            ],
+          },
+          {
+            matcher: "",
+            hooks: [
+              { type: "command", command: "npx other-tool pre-compact" },
+            ],
+          },
         ],
       },
     };
@@ -814,7 +829,7 @@ describe("handleUninstall", () => {
 
     const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
     expect(written.hooks.PreCompact).toHaveLength(1);
-    expect(written.hooks.PreCompact[0].command).toBe(
+    expect(written.hooks.PreCompact[0].hooks[0].command).toBe(
       "npx other-tool pre-compact",
     );
 
@@ -843,8 +858,8 @@ describe("handleSetup", () => {
 
     const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string);
     expect(written.hooks.PreCompact).toHaveLength(1);
-    expect(written.hooks.PreCompact[0].command).toContain(
-      "claude-baton auto-checkpoint",
+    expect(written.hooks.PreCompact[0].hooks[0].command).toContain(
+      "claude-baton.js auto-checkpoint",
     );
 
     errorSpy.mockRestore();
@@ -882,7 +897,12 @@ describe("handleSetup", () => {
     const existing = {
       hooks: {
         PreCompact: [
-          { type: "command", command: "npx -y claude-baton auto-checkpoint" },
+          {
+            matcher: "",
+            hooks: [
+              { type: "command", command: "npx -y claude-baton auto-checkpoint" },
+            ],
+          },
         ],
       },
     };
