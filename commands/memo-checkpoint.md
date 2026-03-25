@@ -35,9 +35,10 @@ Save session state before context loss.
 6. Print structured confirmation:
 
 ```
-Checkpoint saved -- safe to /compact or /clear
-Branch: [branch name]
-State: [current_state summary]
-Next: [next_steps]
-Uncommitted: [count] files
+💾 Checkpoint saved — safe to /compact or /clear
+
+🌿 Branch: [branch name]
+📍 State: [current_state summary]
+🎯 Next: [next_steps]
+📝 Uncommitted: [count] files
 ```

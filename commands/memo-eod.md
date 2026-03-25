@@ -12,31 +12,31 @@ End-of-day summary combining git activity with stored checkpoints.
    - `git diff --name-only HEAD~10 HEAD 2>/dev/null | head -30`
 
 4. Call the `daily_summary` MCP tool (defaults to today).
-   This internally gathers checkpoints and sends them to Haiku for synthesis, then stores the result.
+   This internally gathers checkpoints and sends them to Sonnet for synthesis, then stores the result.
 
 5. Merge git activity from step 2 with the daily_summary output.
 
 6. Display formatted summary:
 
 ```
-## EOD Summary -- [Project Name] -- [DATE]
+## 📊 EOD Summary — [Project Name] — [DATE]
 
-### What Was Built / Shipped
+### 🏗️ What Was Built / Shipped
 [Commits grouped by area + what_was_built from daily_summary]
 
-### Decisions Made
+### 🧭 Decisions Made
 [From daily_summary + checkpoint decisions]
 
-### Blockers and Failures
-[From daily_summary blockers]
+### 🚧 Blockers and Failures
+[From daily_summary blockers -- or "✅ None"]
 
-### Open Questions / Tomorrow
+### 🔮 Open Questions / Tomorrow
 [next_steps from daily_summary]
 
-### Git Stats
-- Commits today: [count]
-- Files changed: [count]
-- Feature areas: [list of commit prefixes]
+### 📈 Git Stats
+- 📝 Commits today: [count]
+- 📁 Files changed: [count]
+- 🏷️ Feature areas: [list of commit prefixes]
 ```
 
-7. Confirm: "EOD saved for [Project Name] -- [DATE]. [N] commits today."
+7. Confirm: "✅ EOD saved for [Project Name] — [DATE]. [N] commits today."
