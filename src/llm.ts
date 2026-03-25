@@ -63,7 +63,7 @@ function callClaudeRaw(
       clearTimeout(timer);
       if (settled) return;
       settled = true;
-      if (process.env.MEMORIA_DEBUG) {
+      if (process.env.CLAUDE_BATON_DEBUG) {
         console.error(
           `[DEBUG] claude -p exit=${code} stdout=${stdout.slice(0, 500)} stderr=${stderr.slice(0, 200)}`,
         );
@@ -82,7 +82,7 @@ function callClaudeRaw(
       reject(new Error(`Failed to spawn claude: ${err.message}`));
     });
 
-    if (process.env.MEMORIA_DEBUG) {
+    if (process.env.CLAUDE_BATON_DEBUG) {
       console.error(
         `[DEBUG] Prompt length: ${prompt.length}, first 300 chars: ${prompt.slice(0, 300)}`,
       );

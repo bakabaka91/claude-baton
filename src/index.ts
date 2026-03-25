@@ -20,6 +20,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(
+  readFileSync(path.join(__dirname, "..", "package.json"), "utf-8"),
+);
 
 let db: Database;
 let dbPath: string;
@@ -76,7 +79,7 @@ class ValidationError extends Error {
 }
 
 const server = new Server(
-  { name: "claude-baton", version: "1.0.0" },
+  { name: "claude-baton", version: pkg.version },
   { capabilities: { tools: {} } },
 );
 
