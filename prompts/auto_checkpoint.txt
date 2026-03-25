@@ -27,4 +27,4 @@ Example output:
 }
 
 Transcript:
-{TRANSCRIPT}
+{{TRANSCRIPT}}

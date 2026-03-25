@@ -68,8 +68,9 @@ export async function handleAutoCheckpoint(): Promise<void> {
 
     let transcriptPath: string | undefined;
     try {
-      const metadata = JSON.parse(stdinData);
-      transcriptPath = metadata?.input?.metadata?.transcript_path;
+      const hookInput = JSON.parse(stdinData);
+      // Claude Code PreCompact hook sends flat JSON with transcript_path at top level
+      transcriptPath = hookInput?.transcript_path;
     } catch {
       console.error(
         "[claude-baton] Could not parse hook metadata, skipping auto-checkpoint",
@@ -99,7 +100,7 @@ export async function handleAutoCheckpoint(): Promise<void> {
 
     // Build prompt
     const template = readPromptTemplate("auto_checkpoint.txt");
-    const prompt = template.replace("{TRANSCRIPT}", transcript);
+    const prompt = template.replace("{{TRANSCRIPT}}", transcript);
 
     // Call LLM
     const result = await callClaudeJson<AutoCheckpointResult>(
@@ -430,9 +431,20 @@ export async function handleImport(file: string): Promise<void> {
   }
 
   let imported = 0;
+  let skipped = 0;
 
   if (Array.isArray(data.checkpoints)) {
     for (const cp of data.checkpoints) {
+      if (
+        !cp.project_path ||
+        !cp.session_id ||
+        !cp.current_state ||
+        !cp.what_was_built ||
+        !cp.next_steps
+      ) {
+        skipped++;
+        continue;
+      }
       insertCheckpoint(
         db,
         cp.project_path,
@@ -453,7 +465,9 @@ export async function handleImport(file: string): Promise<void> {
   }
 
   saveDatabase(db, dbPath);
-  console.error(`Imported ${imported} items.`);
+  console.error(
+    `Imported ${imported} items.${skipped ? ` Skipped ${skipped} malformed.` : ""}`,
+  );
 }
 
 // --- Reset command ---

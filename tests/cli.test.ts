@@ -483,14 +483,11 @@ describe("installCommands", () => {
       "memo-insight.md",
     ] as unknown as ReturnType<typeof readdirSync>);
 
-    // First call: ensureDir check, second+: per-file existsSync
+    // Per-file existsSync: memo-checkpoint.md exists, others don't
     let callCount = 0;
     mockExistsSync.mockImplementation(() => {
       callCount++;
-      // First call is ensureDir check (returns false to trigger mkdir)
-      if (callCount <= 1) return false;
-      // memo-checkpoint.md exists, memo-resume.md and memo-insight.md don't
-      return callCount === 2;
+      return callCount === 1;
     });
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -513,8 +510,7 @@ describe("installCommands", () => {
     let callCount = 0;
     mockExistsSync.mockImplementation(() => {
       callCount++;
-      if (callCount <= 1) return false;
-      return callCount === 2; // first file exists, second doesn't
+      return callCount === 1; // first file exists (skip), second doesn't (install)
     });
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -939,26 +935,22 @@ describe("handleSetup", () => {
 
 describe("handleAutoCheckpoint", () => {
   it("saves checkpoint from transcript via LLM", async () => {
-    const metadata = {
-      input: {
-        metadata: {
-          transcript_path: "/tmp/test-transcript.txt",
-        },
-      },
+    const hookInput = {
+      transcript_path: "/tmp/test-transcript.txt",
+      session_id: "test-session",
+      hook_event_name: "PreCompact",
     };
 
     // Mock stdin read
     mockReadFileSync.mockImplementation((p: unknown) => {
-      if (p === 0) return JSON.stringify(metadata);
+      if (p === 0) return JSON.stringify(hookInput);
       if (p === "/tmp/test-transcript.txt")
         return "User asked to build auth module. Assistant built it.";
       if (typeof p === "string" && p.endsWith("package.json")) {
-        const actual = vi.importActual<typeof import("fs")>("fs");
-        // Can't use async here, just return a minimal package.json
         return '{"version":"2.0.0"}';
       }
       if (typeof p === "string" && p.endsWith("auto_checkpoint.txt"))
-        return "Extract: {TRANSCRIPT}";
+        return "Extract: {{TRANSCRIPT}}";
       return "";
     });
 
@@ -1010,16 +1002,14 @@ describe("handleAutoCheckpoint", () => {
   });
 
   it("exits gracefully when transcript file not found", async () => {
-    const metadata = {
-      input: {
-        metadata: {
-          transcript_path: "/nonexistent/transcript.txt",
-        },
-      },
+    const hookInput = {
+      transcript_path: "/nonexistent/transcript.txt",
+      session_id: "test-session",
+      hook_event_name: "PreCompact",
     };
 
     mockReadFileSync.mockImplementation((p: unknown) => {
-      if (p === 0) return JSON.stringify(metadata);
+      if (p === 0) return JSON.stringify(hookInput);
       if (typeof p === "string" && p.endsWith("package.json"))
         return '{"version":"2.0.0"}';
       return "";
@@ -1042,21 +1032,19 @@ describe("handleAutoCheckpoint", () => {
   });
 
   it("exits gracefully when LLM call fails", async () => {
-    const metadata = {
-      input: {
-        metadata: {
-          transcript_path: "/tmp/test-transcript.txt",
-        },
-      },
+    const hookInput = {
+      transcript_path: "/tmp/test-transcript.txt",
+      session_id: "test-session",
+      hook_event_name: "PreCompact",
     };
 
     mockReadFileSync.mockImplementation((p: unknown) => {
-      if (p === 0) return JSON.stringify(metadata);
+      if (p === 0) return JSON.stringify(hookInput);
       if (p === "/tmp/test-transcript.txt") return "Some transcript content";
       if (typeof p === "string" && p.endsWith("package.json"))
         return '{"version":"2.0.0"}';
       if (typeof p === "string" && p.endsWith("auto_checkpoint.txt"))
-        return "Extract: {TRANSCRIPT}";
+        return "Extract: {{TRANSCRIPT}}";
       return "";
     });
 

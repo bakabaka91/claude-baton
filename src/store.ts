@@ -70,15 +70,17 @@ export function initSchema(db: Database): void {
   // Migration: add git_snapshot column for existing databases
   try {
     db.exec("ALTER TABLE checkpoints ADD COLUMN git_snapshot TEXT");
-  } catch {
-    // Column already exists — expected for new databases or already-migrated ones
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    if (!msg.includes("duplicate column")) throw e;
   }
 
   // Migration: add plan_reference column for existing databases
   try {
     db.exec("ALTER TABLE checkpoints ADD COLUMN plan_reference TEXT");
-  } catch {
-    // Column already exists
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    if (!msg.includes("duplicate column")) throw e;
   }
 }
 

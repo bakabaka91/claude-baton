@@ -44,14 +44,6 @@ async function reloadDbIfChanged(): Promise<void> {
 /** Stable fallback session ID — generated once at module load, not per call. */
 const fallbackSessionId = `session-${Date.now()}`;
 
-/** Build an MCP error response with a descriptive message. */
-function toolError(message: string) {
-  return {
-    content: [{ type: "text" as const, text: `Error: ${message}` }],
-    isError: true as const,
-  };
-}
-
 /**
  * Validate that a required string argument is present and is a string.
  * Returns the validated string, or throws with a descriptive message.

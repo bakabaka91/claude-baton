@@ -1,4 +1,4 @@
-import { mkdirSync, existsSync } from "fs";
+import { mkdirSync } from "fs";
 
 // --- Path helpers ---
 
@@ -7,7 +7,5 @@ export function getProjectPath(): string {
 }
 
 export function ensureDir(dirPath: string): void {
-  if (!existsSync(dirPath)) {
-    mkdirSync(dirPath, { recursive: true });
-  }
+  mkdirSync(dirPath, { recursive: true });
 }

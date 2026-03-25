@@ -15,7 +15,7 @@ Instructions:
 - Do not fabricate information not present in the activity data
 - If the activity data is sparse, reflect that honestly rather than padding
 
-Respond with ONLY a valid JSON object matching this shape:
+Respond with ONLY a valid JSON object matching this shape — no code fences, no text before or after. Your entire response must be parseable by JSON.parse().
 
 {"what_was_built": "...", "decisions_made": ["..."], "blockers": ["..."], "next_steps": ["..."], "highlights": "..."}
 
@@ -25,5 +25,3 @@ Field rules:
 - blockers: array of unresolved issues; use [] if none
 - next_steps: array of actionable items for the next session
 - highlights: one-line summary suitable for a changelog or standup
-
-Respond with ONLY valid JSON. Do not wrap in code fences. Do not include any text before or after the JSON object. Your entire response must be parseable by JSON.parse().
