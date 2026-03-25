@@ -13,5 +13,10 @@ docs/
 .vscode/
 .idea/
 
+# Internal docs (not for public repo)
+BUGS*.md
+PLAN*.md
+COMPETITIVE-LANDSCAPE.md
+
 # Logs
 *.log
