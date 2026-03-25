@@ -247,6 +247,27 @@ export async function handleSetup(): Promise<void> {
     console.error("  Registered PreCompact hook");
   }
 
+  // Register allowed tools for frictionless slash commands (idempotent)
+  const BATON_TOOLS = [
+    "Bash(git status*)",
+    "Bash(git log*)",
+    "Bash(git diff*)",
+    "Bash(git branch*)",
+    "Bash(node *claude-baton*)",
+  ];
+  const allowedTools = (settings.allowedTools ?? []) as string[];
+  let toolsAdded = 0;
+  for (const tool of BATON_TOOLS) {
+    if (!allowedTools.includes(tool)) {
+      allowedTools.push(tool);
+      toolsAdded++;
+    }
+  }
+  if (toolsAdded > 0) {
+    settings.allowedTools = allowedTools;
+    console.error(`  Registered ${toolsAdded} allowed tools`);
+  }
+
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
 
   const dbPath = getDefaultDbPath();
@@ -341,6 +362,24 @@ export async function handleUninstall(opts: {
           delete settings.hooks;
         }
         console.error("  Removed PreCompact hook");
+      }
+
+      // Remove allowed tools
+      if (Array.isArray(settings.allowedTools)) {
+        const BATON_PATTERNS = [
+          "Bash(git status*)",
+          "Bash(git log*)",
+          "Bash(git diff*)",
+          "Bash(git branch*)",
+          "Bash(node *claude-baton*)",
+        ];
+        settings.allowedTools = (settings.allowedTools as string[]).filter(
+          (t) => !BATON_PATTERNS.includes(t),
+        );
+        if ((settings.allowedTools as string[]).length === 0) {
+          delete settings.allowedTools;
+        }
+        console.error("  Removed allowed tools");
       }
 
       writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
