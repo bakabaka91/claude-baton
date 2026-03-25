@@ -147,8 +147,8 @@ export async function handleAutoCheckpoint(): Promise<void> {
     // Call LLM
     const result = await callClaudeJson<AutoCheckpointResult>(
       prompt,
-      "haiku",
-      30000,
+      "sonnet",
+      60000,
     );
 
     // Save checkpoint

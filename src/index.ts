@@ -279,8 +279,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const summaryResult = await callClaudeJson<Record<string, unknown>>(
           summaryPrompt,
-          "haiku",
-          30000,
+          "sonnet",
+          60000,
         );
 
         insertDailySummary(db, projectPath, date, summaryResult, dbPath);
