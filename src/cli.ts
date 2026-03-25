@@ -22,12 +22,13 @@ import {
   countAll,
   listProjects,
   insertCheckpoint,
+  getLatestCheckpoint,
   getAllCheckpoints,
   getAllDailySummaries,
   deleteProjectData,
   deleteAllData,
 } from "./store.js";
-import { ensureDir } from "./utils.js";
+import { ensureDir, normalizeProjectPath } from "./utils.js";
 import { callClaudeJson } from "./llm.js";
 
 // --- Auto-checkpoint (PreCompact hook handler) ---
@@ -98,9 +99,50 @@ export async function handleAutoCheckpoint(): Promise<void> {
     const status = gitCmd("git status --short");
     const log = gitCmd("git log --oneline -10");
 
-    // Build prompt
+    // Initialize DB and fetch previous checkpoint for chaining
+    const dbPath = getDefaultDbPath();
+    const db = await initDatabase(dbPath);
+    const projectPath = normalizeProjectPath(process.cwd());
+
+    const prevCheckpoint = getLatestCheckpoint(db, projectPath);
+
+    // Compute git diff since last checkpoint
+    let gitDiffSinceCheckpoint = "";
+    if (prevCheckpoint?.git_snapshot) {
+      const topCommitHash = prevCheckpoint.git_snapshot
+        .split("\n")[0]
+        ?.split(" ")[0];
+      if (topCommitHash) {
+        gitDiffSinceCheckpoint = gitCmd(
+          `git diff --stat ${topCommitHash}..HEAD`,
+        );
+      }
+    }
+
+    // Build previous checkpoint context
+    let prevContext = "No previous checkpoint exists for this project.";
+    if (prevCheckpoint) {
+      prevContext = [
+        `What was built: ${prevCheckpoint.what_was_built}`,
+        `Current state: ${prevCheckpoint.current_state}`,
+        `Next steps: ${prevCheckpoint.next_steps}`,
+        prevCheckpoint.decisions_made
+          ? `Decisions: ${prevCheckpoint.decisions_made}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    // Build prompt with three sections
     const template = readPromptTemplate("auto_checkpoint.txt");
-    const prompt = template.replace("{{TRANSCRIPT}}", transcript);
+    const prompt = template
+      .replace("{{PREVIOUS_CHECKPOINT}}", prevContext)
+      .replace(
+        "{{GIT_DIFF}}",
+        gitDiffSinceCheckpoint || "No file changes since last checkpoint.",
+      )
+      .replace("{{TRANSCRIPT}}", transcript);
 
     // Call LLM
     const result = await callClaudeJson<AutoCheckpointResult>(
@@ -110,9 +152,6 @@ export async function handleAutoCheckpoint(): Promise<void> {
     );
 
     // Save checkpoint
-    const dbPath = getDefaultDbPath();
-    const db = await initDatabase(dbPath);
-    const projectPath = process.cwd();
     const sessionId = new Date().toISOString();
 
     const uncommittedFiles = status
@@ -133,6 +172,7 @@ export async function handleAutoCheckpoint(): Promise<void> {
         uncommittedFiles,
         gitSnapshot: log || undefined,
         planReference: result.plan_reference || undefined,
+        source: "auto",
       },
       dbPath,
     );
@@ -357,7 +397,7 @@ export async function handleStatus(opts: { project?: string }): Promise<void> {
   }
 
   const db = await initDatabase(dbPath);
-  const projectPath = opts.project ?? process.cwd();
+  const projectPath = opts.project ?? normalizeProjectPath(process.cwd());
   const counts = countAll(db, projectPath);
   const dbSize = statSync(dbPath).size;
 

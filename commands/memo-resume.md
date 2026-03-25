@@ -8,6 +8,17 @@ Restore context from last checkpoint at session start.
 
 3. Call the `get_checkpoint` MCP tool (latest by default, or by ID if the user specified one via $ARGUMENTS).
 
+3.5. **Staleness check:** If a checkpoint was found, compute the time delta between the checkpoint's `created_at` and now:
+   - More than 7 days old: display `"WARNING: This checkpoint is [N] days old. Project state may have changed significantly."`
+   - More than 24 hours but 7 days or less: display `"Note: This checkpoint is [N] hours/days old."`
+   - 24 hours or less: no staleness note
+
+3.75. **Cold-start fallback:** If NO checkpoint exists for this project:
+   - Run `git log --oneline -20`, `git diff --stat HEAD~5..HEAD`, `git branch --show-current`, `git status --short`
+   - Present a "Cold Start Briefing" with recent commits, file changes, and uncommitted work
+   - End with: "No checkpoint to resume from, but here is the project state from git. What would you like to work on?"
+   - Skip remaining steps (4-8)
+
 4. Capture current git state by running these bash commands:
    - `git branch --show-current`
    - `git status --short`
@@ -28,6 +39,8 @@ Restore context from last checkpoint at session start.
 ## Session Resume -- [Project Name] -- [DATE]
 
 Resuming from checkpoint: [timestamp]
+Source: [auto/manual] checkpoint
+[Staleness warning if applicable]
 
 ### Branch
 [checkpoint branch] -- currently on [current branch]

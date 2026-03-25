@@ -15,6 +15,7 @@ import {
   insertDailySummary,
 } from "./store.js";
 import { callClaudeJson } from "./llm.js";
+import { normalizeProjectPath } from "./utils.js";
 import { readFileSync, statSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -106,6 +107,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             description:
               "Reference to active plan document and section, e.g. 'docs/plan.md Phase 2 Step 3'",
           },
+          source: {
+            type: "string",
+            enum: ["manual", "auto"],
+            description: "Checkpoint source. Defaults to manual.",
+          },
           project: {
             type: "string",
             description: "Project path (defaults to cwd)",
@@ -171,7 +177,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
-  const projectPath = (args?.project as string) ?? process.cwd();
+  const projectPath = (args?.project as string) ?? normalizeProjectPath(process.cwd());
 
   await reloadDbIfChanged();
 
@@ -205,6 +211,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             uncommittedFiles: a?.uncommitted_files as string[] | undefined,
             gitSnapshot: a?.git_snapshot as string | undefined,
             planReference: a?.plan_reference as string | undefined,
+            source: (a?.source as "manual" | "auto" | undefined) ?? "manual",
           },
           dbPath,
         );

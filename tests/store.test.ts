@@ -235,6 +235,86 @@ describe("date-range queries", () => {
       const results = getCheckpointsByDate(db, project, targetDate);
       expect(results).toHaveLength(0);
     });
+
+    it("does not return checkpoints from adjacent days", () => {
+      insertCheckpoint(db, project, "s1", "State A", "Built A", "Next A");
+      insertCheckpoint(db, project, "s2", "State B", "Built B", "Next B");
+
+      // One checkpoint on target date, one clearly on a different day (2 days before)
+      db.run(
+        `UPDATE checkpoints SET created_at = '${targetDate}T12:00:00.000Z' WHERE current_state = 'State A'`,
+      );
+      db.run(
+        `UPDATE checkpoints SET created_at = '2026-03-20T10:00:00.000Z' WHERE current_state = 'State B'`,
+      );
+
+      const results = getCheckpointsByDate(db, project, targetDate);
+      expect(results).toHaveLength(1);
+      expect(results[0].current_state).toBe("State A");
+    });
+
+    it("finds checkpoints created during the day", () => {
+      insertCheckpoint(db, project, "s1", "Morning", "Built AM", "Next AM");
+      insertCheckpoint(db, project, "s2", "Evening", "Built PM", "Next PM");
+
+      db.run(
+        `UPDATE checkpoints SET created_at = '${targetDate}T08:30:00.000Z' WHERE current_state = 'Morning'`,
+      );
+      db.run(
+        `UPDATE checkpoints SET created_at = '${targetDate}T17:45:00.000Z' WHERE current_state = 'Evening'`,
+      );
+
+      const results = getCheckpointsByDate(db, project, targetDate);
+      expect(results).toHaveLength(2);
+    });
+  });
+});
+
+describe("source field in checkpoints", () => {
+  it("stores and retrieves source field as 'manual' by default", () => {
+    const id = insertCheckpoint(
+      db,
+      "/proj",
+      "sess-1",
+      "Working",
+      "Auth",
+      "Tests",
+    );
+    const cp = getCheckpoint(db, id);
+    expect(cp).not.toBeNull();
+    expect(cp!.source).toBe("manual");
+  });
+
+  it("stores and retrieves source field as 'auto' when specified", () => {
+    const id = insertCheckpoint(
+      db,
+      "/proj",
+      "sess-1",
+      "Working",
+      "Auth",
+      "Tests",
+      { source: "auto" },
+    );
+    const cp = getCheckpoint(db, id);
+    expect(cp).not.toBeNull();
+    expect(cp!.source).toBe("auto");
+  });
+
+  it("migration adds source column to existing databases", () => {
+    // initSchema already ran in beforeEach — the migration should handle
+    // the duplicate column case gracefully. Run it again to verify.
+    initSchema(db);
+    const id = insertCheckpoint(
+      db,
+      "/proj",
+      "sess-1",
+      "Working",
+      "Auth",
+      "Tests",
+      { source: "auto" },
+    );
+    const cp = getCheckpoint(db, id);
+    expect(cp!.source).toBe("auto");
   });
 });
 

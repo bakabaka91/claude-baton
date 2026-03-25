@@ -12,6 +12,7 @@ export interface Checkpoint {
   uncommitted_files: string[];
   git_snapshot: string | null;
   plan_reference: string | null;
+  source: "manual" | "auto";
   created_at: string;
 }
 

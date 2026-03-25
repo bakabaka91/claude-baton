@@ -51,6 +51,7 @@ export function initSchema(db: Database): void {
       uncommitted_files TEXT DEFAULT '[]',
       git_snapshot TEXT,
       plan_reference TEXT,
+      source TEXT DEFAULT 'manual',
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_checkpoints_project ON checkpoints(project_path);
@@ -82,6 +83,14 @@ export function initSchema(db: Database): void {
     const msg = e instanceof Error ? e.message : "";
     if (!msg.includes("duplicate column")) throw e;
   }
+
+  // Migration: add source column for existing databases
+  try {
+    db.exec("ALTER TABLE checkpoints ADD COLUMN source TEXT DEFAULT 'manual'");
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    if (!msg.includes("duplicate column")) throw e;
+  }
 }
 
 // --- Checkpoints CRUD ---
@@ -100,13 +109,14 @@ export function insertCheckpoint(
     uncommittedFiles?: string[];
     gitSnapshot?: string;
     planReference?: string;
+    source?: "manual" | "auto";
   },
   dbPath?: string,
 ): string {
   const id = crypto.randomUUID();
   db.run(
-    `INSERT INTO checkpoints (id, project_path, session_id, branch, current_state, what_was_built, next_steps, decisions_made, blockers, uncommitted_files, git_snapshot, plan_reference, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO checkpoints (id, project_path, session_id, branch, current_state, what_was_built, next_steps, decisions_made, blockers, uncommitted_files, git_snapshot, plan_reference, source, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       projectPath,
@@ -120,6 +130,7 @@ export function insertCheckpoint(
       JSON.stringify(opts?.uncommittedFiles ?? []),
       opts?.gitSnapshot ?? null,
       opts?.planReference ?? null,
+      opts?.source ?? "manual",
       new Date().toISOString(),
     ],
   );
@@ -156,6 +167,7 @@ function parseCheckpointRow(row: Record<string, unknown>): Checkpoint {
     uncommitted_files: JSON.parse(row.uncommitted_files as string),
     git_snapshot: (row.git_snapshot as string | null) ?? null,
     plan_reference: (row.plan_reference as string | null) ?? null,
+    source: (row.source as string | null) ?? "manual",
   } as Checkpoint;
 }
 
@@ -164,10 +176,14 @@ export function getCheckpointsByDate(
   projectPath: string,
   date: string,
 ): Checkpoint[] {
+  const startLocal = new Date(`${date}T00:00:00`);
+  const endLocal = new Date(`${date}T23:59:59.999`);
+  const startUtc = startLocal.toISOString();
+  const endUtc = endLocal.toISOString();
   const stmt = db.prepare(
-    "SELECT * FROM checkpoints WHERE project_path = ? AND created_at LIKE ? || '%' ORDER BY created_at ASC",
+    "SELECT * FROM checkpoints WHERE project_path = ? AND created_at >= ? AND created_at <= ? ORDER BY created_at ASC",
   );
-  stmt.bind([projectPath, date]);
+  stmt.bind([projectPath, startUtc, endUtc]);
   const results: Checkpoint[] = [];
   while (stmt.step()) {
     results.push(parseCheckpointRow(stmt.getAsObject()));

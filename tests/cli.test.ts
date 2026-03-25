@@ -104,6 +104,7 @@ import {
   initDatabase as mockInitDb,
   getDefaultDbPath,
   saveDatabase,
+  getLatestCheckpoint,
 } from "../src/store.js";
 import {
   handleStatus,
@@ -1057,6 +1058,124 @@ describe("handleAutoCheckpoint", () => {
     expect(errorSpy).toHaveBeenCalledWith(
       "[claude-baton] Auto-checkpoint failed: LLM timeout",
     );
+
+    errorSpy.mockRestore();
+  });
+
+  it("chains auto-checkpoint with previous checkpoint context", async () => {
+    // Insert a previous checkpoint
+    insertCheckpoint(db, process.cwd(), "prev-session", "Build passing", "Auth module", "Add tests", {
+      gitSnapshot: "abc1234 feat: add auth",
+      source: "auto",
+    });
+
+    const hookInput = {
+      transcript_path: "/tmp/test-transcript.txt",
+      session_id: "test-session",
+      hook_event_name: "PreCompact",
+    };
+
+    mockReadFileSync.mockImplementation((p: unknown) => {
+      if (p === 0) return JSON.stringify(hookInput);
+      if (p === "/tmp/test-transcript.txt") return "User added more features.";
+      if (typeof p === "string" && p.endsWith("package.json"))
+        return '{"version":"2.0.0"}';
+      if (typeof p === "string" && p.endsWith("auto_checkpoint.txt"))
+        return "PREV: {{PREVIOUS_CHECKPOINT}}\nDIFF: {{GIT_DIFF}}\nTRANSCRIPT: {{TRANSCRIPT}}";
+      return "";
+    });
+
+    mockCallClaudeJson.mockResolvedValue({
+      what_was_built: "More features",
+      current_state: "All passing",
+      next_steps: "Deploy",
+      decisions_made: "None",
+      blockers: "None",
+      plan_reference: null,
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleAutoCheckpoint();
+
+    // Verify prompt contains previous checkpoint's what_was_built
+    const promptArg = mockCallClaudeJson.mock.calls[0][0];
+    expect(promptArg).toContain("Auth module");
+    expect(promptArg).toContain("Build passing");
+
+    errorSpy.mockRestore();
+  });
+
+  it("handles first auto-checkpoint with no previous checkpoint", async () => {
+    const hookInput = {
+      transcript_path: "/tmp/test-transcript.txt",
+      session_id: "test-session",
+      hook_event_name: "PreCompact",
+    };
+
+    mockReadFileSync.mockImplementation((p: unknown) => {
+      if (p === 0) return JSON.stringify(hookInput);
+      if (p === "/tmp/test-transcript.txt") return "Starting fresh project.";
+      if (typeof p === "string" && p.endsWith("package.json"))
+        return '{"version":"2.0.0"}';
+      if (typeof p === "string" && p.endsWith("auto_checkpoint.txt"))
+        return "PREV: {{PREVIOUS_CHECKPOINT}}\nDIFF: {{GIT_DIFF}}\nTRANSCRIPT: {{TRANSCRIPT}}";
+      return "";
+    });
+
+    mockCallClaudeJson.mockResolvedValue({
+      what_was_built: "Initial setup",
+      current_state: "Fresh",
+      next_steps: "Build features",
+      decisions_made: "None",
+      blockers: "None",
+      plan_reference: null,
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleAutoCheckpoint();
+
+    // Verify "No previous checkpoint" fallback in prompt
+    const promptArg = mockCallClaudeJson.mock.calls[0][0];
+    expect(promptArg).toContain("No previous checkpoint");
+
+    errorSpy.mockRestore();
+  });
+
+  it("saves auto-checkpoint with source 'auto'", async () => {
+    const hookInput = {
+      transcript_path: "/tmp/test-transcript.txt",
+      session_id: "test-session",
+      hook_event_name: "PreCompact",
+    };
+
+    mockReadFileSync.mockImplementation((p: unknown) => {
+      if (p === 0) return JSON.stringify(hookInput);
+      if (p === "/tmp/test-transcript.txt") return "Did some work.";
+      if (typeof p === "string" && p.endsWith("package.json"))
+        return '{"version":"2.0.0"}';
+      if (typeof p === "string" && p.endsWith("auto_checkpoint.txt"))
+        return "PREV: {{PREVIOUS_CHECKPOINT}}\nDIFF: {{GIT_DIFF}}\nTRANSCRIPT: {{TRANSCRIPT}}";
+      return "";
+    });
+
+    mockCallClaudeJson.mockResolvedValue({
+      what_was_built: "Some work",
+      current_state: "Passing",
+      next_steps: "More work",
+      decisions_made: "None",
+      blockers: "None",
+      plan_reference: null,
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await handleAutoCheckpoint();
+
+    const checkpoints = getAllCheckpoints(db);
+    expect(checkpoints).toHaveLength(1);
+    expect(checkpoints[0].source).toBe("auto");
 
     errorSpy.mockRestore();
   });
