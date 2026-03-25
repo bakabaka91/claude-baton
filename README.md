@@ -27,8 +27,9 @@ claude-baton setup
 ```
 
 This:
-- Registers the MCP server in `~/.claude/settings.json`
+- Registers the MCP server via `claude mcp add` (user scope, available across all projects)
 - Registers the PreCompact hook for auto-checkpoint
+- Registers allowed tools so slash commands run without approval prompts
 - Initializes the SQLite database at `~/.claude-baton/store.db`
 - Installs slash commands to `~/.claude/commands/`
 
@@ -97,8 +98,8 @@ All data lives in `~/.claude-baton/store.db`:
 ## Requirements
 
 - Node.js >= 18
-- Claude Code with a Claude subscription (for `claude -p` calls)
-- No API keys needed
+- Claude Code CLI installed and authenticated (setup uses `claude mcp add`)
+- No API keys needed — LLM calls use `claude -p`
 
 ## Development
 
