@@ -178,11 +178,12 @@ export async function handleSetup(): Promise<void> {
   const preCompactHooks = (hooks.PreCompact ?? []) as Array<
     Record<string, unknown>
   >;
-  const hasBatonHook = preCompactHooks.some((h) =>
-    Array.isArray(h.hooks) &&
-    (h.hooks as Array<Record<string, string>>).some(
-      (hook) => hook.command?.includes("claude-baton"),
-    ),
+  const hasBatonHook = preCompactHooks.some(
+    (h) =>
+      Array.isArray(h.hooks) &&
+      (h.hooks as Array<Record<string, string>>).some((hook) =>
+        hook.command?.includes("claude-baton"),
+      ),
   );
   if (!hasBatonHook) {
     const autoCheckpointBin = path.resolve(
@@ -280,12 +281,14 @@ export async function handleUninstall(opts: {
         (settings.hooks as Record<string, unknown>).PreCompact
       ) {
         const hooksObj = settings.hooks as Record<string, unknown>;
-        const preCompact = hooksObj.PreCompact as Array<Record<string, unknown>>;
+        const preCompact = hooksObj.PreCompact as Array<
+          Record<string, unknown>
+        >;
         const filtered = preCompact.filter(
           (h) =>
             !Array.isArray(h.hooks) ||
-            !(h.hooks as Array<Record<string, string>>).some(
-              (hook) => hook.command?.includes("claude-baton"),
+            !(h.hooks as Array<Record<string, string>>).some((hook) =>
+              hook.command?.includes("claude-baton"),
             ),
         );
         if (filtered.length === 0) {

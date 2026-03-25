@@ -770,7 +770,10 @@ describe("handleUninstall", () => {
           {
             matcher: "",
             hooks: [
-              { type: "command", command: "npx -y claude-baton auto-checkpoint" },
+              {
+                type: "command",
+                command: "npx -y claude-baton auto-checkpoint",
+              },
             ],
           },
         ],
@@ -802,14 +805,15 @@ describe("handleUninstall", () => {
           {
             matcher: "",
             hooks: [
-              { type: "command", command: "npx -y claude-baton auto-checkpoint" },
+              {
+                type: "command",
+                command: "npx -y claude-baton auto-checkpoint",
+              },
             ],
           },
           {
             matcher: "",
-            hooks: [
-              { type: "command", command: "npx other-tool pre-compact" },
-            ],
+            hooks: [{ type: "command", command: "npx other-tool pre-compact" }],
           },
         ],
       },
@@ -900,7 +904,10 @@ describe("handleSetup", () => {
           {
             matcher: "",
             hooks: [
-              { type: "command", command: "npx -y claude-baton auto-checkpoint" },
+              {
+                type: "command",
+                command: "npx -y claude-baton auto-checkpoint",
+              },
             ],
           },
         ],
