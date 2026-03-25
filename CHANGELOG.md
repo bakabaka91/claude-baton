@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-03-25
+
+### Changed
+- Add emojis to `/memo-resume`, `/memo-checkpoint`, and `/memo-eod` output for visual clarity
+- Rewrite README as a product landing page with comparison table, moat analysis, and output examples
+- Remove internal planning and bug tracking docs from repo
+- Add CHANGELOG entries for v2.0.0 through v2.1.1
+- Fix stale haiku reference in memo-eod template
+
 ## [2.1.1] - 2026-03-25
 
 ### Changed
