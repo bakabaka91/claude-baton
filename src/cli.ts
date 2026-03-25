@@ -5,8 +5,10 @@ import {
   copyFileSync,
   existsSync,
   statSync,
+  lstatSync,
   readdirSync,
   unlinkSync,
+  symlinkSync,
   rmSync,
 } from "fs";
 import { execSync } from "child_process";
@@ -326,14 +328,32 @@ export function installCommands(): { installed: number; skipped: number } {
   const files = readdirSync(sourceDir).filter((f) => f.endsWith(".md"));
   for (const file of files) {
     const targetPath = path.join(targetDir, file);
-    if (existsSync(targetPath)) {
-      const name = file.replace(".md", "");
-      console.error(`  Skipping ${name} -- already exists`);
+    const sourcePath = path.join(sourceDir, file);
+    const name = file.replace(".md", "");
+
+    let isSymlink = false;
+    try {
+      isSymlink = lstatSync(targetPath).isSymbolicLink();
+    } catch {
+      // File doesn't exist
+    }
+
+    if (isSymlink) {
+      // Our symlink — update to point to current package version
+      unlinkSync(targetPath);
+      symlinkSync(sourcePath, targetPath);
+      console.error(`  Updated /${name}`);
+      installed++;
+    } else if (existsSync(targetPath)) {
+      // Regular file from old install — don't overwrite
+      console.error(
+        `  Skipping ${name} -- already exists (run uninstall first to upgrade)`,
+      );
       skipped++;
     } else {
-      copyFileSync(path.join(sourceDir, file), targetPath);
-      const name = file.replace(".md", "");
-      console.error(`  Installed /${name}`);
+      // Fresh install — create symlink
+      symlinkSync(sourcePath, targetPath);
+      console.error(`  Linked /${name}`);
       installed++;
     }
   }

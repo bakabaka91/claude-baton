@@ -48,6 +48,10 @@ vi.mock("fs", async () => {
     readdirSync: vi.fn().mockReturnValue([]),
     mkdirSync: vi.fn(),
     unlinkSync: vi.fn(),
+    symlinkSync: vi.fn(),
+    lstatSync: vi.fn().mockImplementation(() => {
+      throw new Error("ENOENT");
+    }),
     rmSync: vi.fn(),
   };
 });
@@ -95,9 +99,11 @@ import {
   readFileSync,
   writeFileSync,
   statSync,
+  lstatSync,
   copyFileSync,
   readdirSync,
   unlinkSync,
+  symlinkSync,
   rmSync,
 } from "fs";
 import {
@@ -127,9 +133,11 @@ const mockInitDatabase = vi.mocked(mockInitDb);
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockWriteFileSync = vi.mocked(writeFileSync);
 const mockStatSync = vi.mocked(statSync);
+const mockLstatSync = vi.mocked(lstatSync);
 const mockCopyFileSync = vi.mocked(copyFileSync);
 const mockReaddirSync = vi.mocked(readdirSync);
 const mockUnlinkSync = vi.mocked(unlinkSync);
+const mockSymlinkSync = vi.mocked(symlinkSync);
 const mockRmSync = vi.mocked(rmSync);
 
 let db: Database;
@@ -439,7 +447,7 @@ describe("handleReset", () => {
 // --- installCommands ---
 
 describe("installCommands", () => {
-  it("copies files when target does not exist", () => {
+  it("creates symlinks when target does not exist", () => {
     mockReaddirSync.mockReturnValue([
       "memo-checkpoint.md",
       "memo-resume.md",
@@ -447,6 +455,9 @@ describe("installCommands", () => {
       "memo-eod.md",
     ] as unknown as ReturnType<typeof readdirSync>);
     mockExistsSync.mockReturnValue(false);
+    mockLstatSync.mockImplementation(() => {
+      throw new Error("ENOENT");
+    });
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -454,17 +465,20 @@ describe("installCommands", () => {
 
     expect(result.installed).toBe(4);
     expect(result.skipped).toBe(0);
-    expect(mockCopyFileSync).toHaveBeenCalledTimes(4);
+    expect(mockSymlinkSync).toHaveBeenCalledTimes(4);
 
     errorSpy.mockRestore();
   });
 
-  it("skips files when target already exists", () => {
+  it("skips regular files when target already exists", () => {
     mockReaddirSync.mockReturnValue([
       "memo-checkpoint.md",
       "memo-resume.md",
     ] as unknown as ReturnType<typeof readdirSync>);
     mockExistsSync.mockReturnValue(true);
+    mockLstatSync.mockReturnValue({
+      isSymbolicLink: () => false,
+    } as ReturnType<typeof lstatSync>);
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -472,23 +486,53 @@ describe("installCommands", () => {
 
     expect(result.installed).toBe(0);
     expect(result.skipped).toBe(2);
-    expect(mockCopyFileSync).not.toHaveBeenCalled();
+    expect(mockSymlinkSync).not.toHaveBeenCalled();
 
     errorSpy.mockRestore();
   });
 
-  it("handles mix of new and existing files", () => {
+  it("updates existing symlinks on re-setup", () => {
     mockReaddirSync.mockReturnValue([
       "memo-checkpoint.md",
       "memo-resume.md",
-      "memo-insight.md",
+    ] as unknown as ReturnType<typeof readdirSync>);
+    mockLstatSync.mockReturnValue({
+      isSymbolicLink: () => true,
+    } as ReturnType<typeof lstatSync>);
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = installCommands();
+
+    expect(result.installed).toBe(2);
+    expect(result.skipped).toBe(0);
+    expect(mockUnlinkSync).toHaveBeenCalledTimes(2);
+    expect(mockSymlinkSync).toHaveBeenCalledTimes(2);
+
+    errorSpy.mockRestore();
+  });
+
+  it("handles mix of new, symlink, and existing files", () => {
+    mockReaddirSync.mockReturnValue([
+      "memo-checkpoint.md",
+      "memo-resume.md",
+      "memo-eod.md",
     ] as unknown as ReturnType<typeof readdirSync>);
 
-    // Per-file existsSync: memo-checkpoint.md exists, others don't
     let callCount = 0;
-    mockExistsSync.mockImplementation(() => {
+    // memo-checkpoint: existing symlink (update), memo-resume: regular file (skip), memo-eod: new (create)
+    mockLstatSync.mockImplementation(() => {
       callCount++;
-      return callCount === 1;
+      if (callCount === 1)
+        return { isSymbolicLink: () => true } as ReturnType<typeof lstatSync>;
+      if (callCount === 2)
+        return { isSymbolicLink: () => false } as ReturnType<typeof lstatSync>;
+      throw new Error("ENOENT");
+    });
+    let existsCount = 0;
+    mockExistsSync.mockImplementation(() => {
+      existsCount++;
+      return existsCount === 1; // only memo-resume exists as regular file
     });
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -497,21 +541,29 @@ describe("installCommands", () => {
 
     expect(result.installed).toBe(2);
     expect(result.skipped).toBe(1);
-    expect(mockCopyFileSync).toHaveBeenCalledTimes(2);
 
     errorSpy.mockRestore();
   });
 
-  it("logs installed and skipped command names", () => {
+  it("logs linked, updated, and skipped command names", () => {
     mockReaddirSync.mockReturnValue([
       "memo-checkpoint.md",
       "memo-resume.md",
     ] as unknown as ReturnType<typeof readdirSync>);
 
-    let callCount = 0;
+    let lstatCount = 0;
+    // memo-checkpoint: regular file (not symlink), memo-resume: doesn't exist
+    mockLstatSync.mockImplementation(() => {
+      lstatCount++;
+      if (lstatCount === 1)
+        return { isSymbolicLink: () => false } as ReturnType<typeof lstatSync>;
+      throw new Error("ENOENT");
+    });
+    let existsCount = 0;
+    // memo-checkpoint: exists as regular file (skip), memo-resume: doesn't exist (link)
     mockExistsSync.mockImplementation(() => {
-      callCount++;
-      return callCount === 1; // first file exists (skip), second doesn't (install)
+      existsCount++;
+      return existsCount === 1;
     });
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -520,7 +572,7 @@ describe("installCommands", () => {
 
     const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
     expect(output).toContain("Skipping memo-checkpoint");
-    expect(output).toContain("Installed /memo-resume");
+    expect(output).toContain("Linked /memo-resume");
 
     errorSpy.mockRestore();
   });
