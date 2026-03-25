@@ -177,7 +177,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
-  const projectPath = (args?.project as string) ?? normalizeProjectPath(process.cwd());
+  const projectPath =
+    (args?.project as string) ?? normalizeProjectPath(process.cwd());
 
   await reloadDbIfChanged();
 

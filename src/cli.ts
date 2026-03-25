@@ -204,15 +204,45 @@ export async function handleSetup(): Promise<void> {
     }
   }
 
-  // Register MCP server — use direct node invocation to avoid npx stdio
-  // interference that can break Claude Code statusline rendering
-  const mcpServers = (settings.mcpServers ?? {}) as Record<string, unknown>;
+  // Register MCP server via `claude mcp add` (the correct way for Claude Code
+  // to discover servers). Uses --scope user for cross-project availability.
   const serverScript = path.resolve(__dirname, "..", "bin", "claude-baton.js");
-  mcpServers["claude-baton"] = {
-    command: "node",
-    args: [serverScript, "serve"],
-  };
-  settings.mcpServers = mcpServers;
+  try {
+    // Remove first (idempotent) then add — avoids "already exists" errors
+    execSync("claude mcp remove claude-baton -s user 2>/dev/null || true", {
+      encoding: "utf-8",
+      timeout: 10000,
+    });
+    execSync(
+      `claude mcp add -s user claude-baton -- node ${serverScript} serve`,
+      { encoding: "utf-8", timeout: 10000 },
+    );
+    console.error("  Registered MCP server (user scope)");
+  } catch {
+    console.error(
+      "  Warning: could not register MCP server via 'claude mcp add'.",
+    );
+    console.error(
+      "  Ensure Claude Code CLI is installed. You can manually run:",
+    );
+    console.error(
+      `  claude mcp add -s user claude-baton -- node ${serverScript} serve`,
+    );
+  }
+
+  // Clean up legacy mcpServers from settings.json if present
+  if (
+    settings.mcpServers &&
+    typeof settings.mcpServers === "object" &&
+    (settings.mcpServers as Record<string, unknown>)["claude-baton"]
+  ) {
+    delete (settings.mcpServers as Record<string, unknown>)["claude-baton"];
+    if (
+      Object.keys(settings.mcpServers as Record<string, unknown>).length === 0
+    ) {
+      delete settings.mcpServers;
+    }
+  }
 
   // Register PreCompact hook (idempotent — skip if already present)
   const hooks = (settings.hooks ?? {}) as Record<string, unknown>;
@@ -317,13 +347,23 @@ export async function handleUninstall(opts: {
   keepData?: boolean;
   force?: boolean;
 }): Promise<void> {
-  // 1. Remove MCP server from settings.json
+  // 1. Remove MCP server via claude CLI + clean up settings.json
+  try {
+    execSync("claude mcp remove claude-baton -s user 2>/dev/null || true", {
+      encoding: "utf-8",
+      timeout: 10000,
+    });
+    console.error("  Removed MCP server");
+  } catch {
+    console.error("  Warning: could not remove MCP server via CLI");
+  }
+
   const settingsPath = path.join(os.homedir(), ".claude", "settings.json");
   if (existsSync(settingsPath)) {
     try {
       const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
 
-      // Remove MCP server registration
+      // Remove legacy MCP server from settings.json if present
       if (
         settings.mcpServers &&
         typeof settings.mcpServers === "object" &&
@@ -333,7 +373,6 @@ export async function handleUninstall(opts: {
         if (Object.keys(settings.mcpServers).length === 0) {
           delete settings.mcpServers;
         }
-        console.error("  Removed MCP server from settings.json");
       }
 
       // Remove PreCompact hook

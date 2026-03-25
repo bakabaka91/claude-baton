@@ -1064,10 +1064,18 @@ describe("handleAutoCheckpoint", () => {
 
   it("chains auto-checkpoint with previous checkpoint context", async () => {
     // Insert a previous checkpoint
-    insertCheckpoint(db, process.cwd(), "prev-session", "Build passing", "Auth module", "Add tests", {
-      gitSnapshot: "abc1234 feat: add auth",
-      source: "auto",
-    });
+    insertCheckpoint(
+      db,
+      process.cwd(),
+      "prev-session",
+      "Build passing",
+      "Auth module",
+      "Add tests",
+      {
+        gitSnapshot: "abc1234 feat: add auth",
+        source: "auto",
+      },
+    );
 
     const hookInput = {
       transcript_path: "/tmp/test-transcript.txt",
