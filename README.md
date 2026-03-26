@@ -24,7 +24,7 @@ You're deep in a Claude Code session — 45 minutes in, multiple files changed, 
 
 ## ✨ The Solution
 
-claude-baton gives Claude Code **persistent memory across sessions**. It automatically saves what was built, what's next, and why — then restores it perfectly when you come back.
+claude-baton gives Claude Code **persistent memory across sessions**. One command saves what was built, what's next, and why — one command brings it back.
 
 ```
 Session 1                          Session 2
@@ -41,7 +41,7 @@ Session 1                          Session 2
 
 ## 🎯 What You Get
 
-- **🔄 Seamless resume** — Start any session with `/memo-resume` and pick up exactly where you left off
+- **🔄 One-command resume** — Start any session with `/memo-resume` to restore what was built, decisions, blockers, and next steps
 - **💾 Auto-checkpoint** — PreCompact hook saves your session state *before* Claude compacts context. You never have to remember.
 - **📊 Diff intelligence** — Resume shows what changed since your last session (new commits, modified files, dependency changes)
 - **🧠 Decision memory** — Key decisions and their reasoning survive across sessions
@@ -268,7 +268,7 @@ git clone https://github.com/bakabaka91/claude-baton.git
 cd claude-baton
 npm install
 npm run build
-npm test            # 97 tests
+npm test            # 98 tests
 ```
 
 ## 🗑️ Uninstall
