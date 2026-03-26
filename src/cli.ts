@@ -30,7 +30,7 @@ import {
   deleteProjectData,
   deleteAllData,
 } from "./store.js";
-import { ensureDir, normalizeProjectPath } from "./utils.js";
+import { ensureDir, formatSize, normalizeProjectPath } from "./utils.js";
 import { callClaudeJson } from "./llm.js";
 
 // --- Auto-checkpoint (PreCompact hook handler) ---
@@ -563,14 +563,16 @@ export async function handleStatus(opts: { project?: string }): Promise<void> {
   const projectPath = opts.project ?? normalizeProjectPath(process.cwd());
   const counts = countAll(db, projectPath);
   const dbSize = statSync(dbPath).size;
+  const llmCalls = counts.auto_checkpoints + counts.daily_summaries;
 
   console.log(`Project: ${projectPath}`);
-  console.log(`Database: ${dbPath} (${(dbSize / 1024).toFixed(1)} KB)`);
+  console.log(`Database: ${dbPath} (${formatSize(dbSize)})`);
   console.log();
   console.log("Counts:");
-  for (const [key, value] of Object.entries(counts)) {
-    console.log(`  ${key}: ${value}`);
-  }
+  console.log(`  checkpoints: ${counts.checkpoints} (${counts.checkpoints - counts.auto_checkpoints} manual, ${counts.auto_checkpoints} auto)`);
+  console.log(`  daily_summaries: ${counts.daily_summaries}`);
+  console.log();
+  console.log(`LLM calls (claude -p): ${llmCalls} (${counts.auto_checkpoints} auto-checkpoints + ${counts.daily_summaries} EOD summaries)`);
 }
 
 // --- Projects command ---

@@ -304,6 +304,11 @@ export function countAll(
         "SELECT COUNT(*) as count FROM checkpoints WHERE project_path = ?",
         p,
       ),
+      auto_checkpoints: countTable(
+        db,
+        "SELECT COUNT(*) as count FROM checkpoints WHERE project_path = ? AND source = 'auto'",
+        p,
+      ),
       daily_summaries: countTable(
         db,
         "SELECT COUNT(*) as count FROM daily_summaries WHERE project_path = ?",
@@ -315,6 +320,11 @@ export function countAll(
     checkpoints: countTable(
       db,
       "SELECT COUNT(*) as count FROM checkpoints",
+      [],
+    ),
+    auto_checkpoints: countTable(
+      db,
+      "SELECT COUNT(*) as count FROM checkpoints WHERE source = 'auto'",
       [],
     ),
     daily_summaries: countTable(
