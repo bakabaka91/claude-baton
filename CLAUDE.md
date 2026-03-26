@@ -52,7 +52,7 @@ When working on code, use the scoped agent for that domain. Never let one agent 
 
 | Command | Purpose |
 |---|---|
-| `/build` | Compile TypeScript |
+| `/build` | Compile TypeScript + format with Prettier |
 | `/test` | Run test suite |
 | `/lint` | Run ESLint + Prettier check |
 | `/dev` | Start MCP server in dev mode |
@@ -89,4 +89,4 @@ git push && git push --tags   # push commit + tag to GitHub
 - Use `npm version` to bump — never edit version in package.json manually
 
 ## Current state
-v2 session lifecycle manager. 4 MCP tools, 3 slash commands, PreCompact auto-checkpoint hook. Published on npm.
+v2.1.5 session lifecycle manager. 4 MCP tools, 3 slash commands, PreCompact auto-checkpoint hook, cost transparency. Published on npm.
