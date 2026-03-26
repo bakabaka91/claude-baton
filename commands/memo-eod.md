@@ -1,5 +1,7 @@
 End-of-day summary combining git activity with stored checkpoints.
 
+**Important: Run all git commands exactly as written below — do NOT add -C flags or path arguments. The working directory is already the project root.**
+
 ## Steps
 
 1. Detect the project from the current working directory.

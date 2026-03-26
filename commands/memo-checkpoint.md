@@ -1,5 +1,7 @@
 Save session state before context loss.
 
+**Important: Run all git commands exactly as written below — do NOT add -C flags or path arguments. The working directory is already the project root.**
+
 ## Steps
 
 1. Detect the project from the current working directory.
@@ -8,7 +10,6 @@ Save session state before context loss.
    - `git branch --show-current`
    - `git status --short`
    - `git diff --name-only HEAD`
-   - `git log --since="2 hours ago" --format="%h %s"`
    - `git log --oneline -10` (this becomes the git_snapshot)
 
 3. Check if any plan documents exist (PLAN.md, docs/*.md specs, roadmaps). If one is being actively worked on, note the file path and the current phase/step (e.g. "docs/v2-plan.md Phase 2 Step 3").
@@ -43,5 +44,5 @@ Save session state before context loss.
 📝 Uncommitted: [count] files
 
 📜 Commits this session:
-[git log --since="2 hours ago" output from step 2 — or "No commits this session" if empty]
+[List commits made during THIS conversation from your context — or "No commits this session" if none were made]
 ```

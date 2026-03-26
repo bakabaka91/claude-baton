@@ -286,10 +286,6 @@ export async function handleSetup(): Promise<void> {
     "Bash(git log*)",
     "Bash(git diff*)",
     "Bash(git branch*)",
-    "Bash(git -C *status*)",
-    "Bash(git -C *log*)",
-    "Bash(git -C *diff*)",
-    "Bash(git -C *branch*)",
     "Bash(node *claude-baton*)",
   ];
   const allowedTools = (settings.allowedTools ?? []) as string[];
@@ -465,6 +461,7 @@ export async function handleUninstall(opts: {
           "Bash(git -C *branch*)",
           "Bash(node *claude-baton*)",
         ];
+        // Note: git -C patterns kept in uninstall to clean up from older installs
         settings.allowedTools = (settings.allowedTools as string[]).filter(
           (t) => !BATON_BASH_PATTERNS.includes(t),
         );
