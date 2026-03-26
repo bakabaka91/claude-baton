@@ -41,10 +41,8 @@ End-of-day summary combining git activity with stored checkpoints.
 - 🏷️ Feature areas: [list of commit prefixes]
 
 ### 💰 Baton Usage
-- LLM calls today: [auto_checkpoints today + 1 EOD summary] ([N] auto-checkpoints + 1 EOD)
-- Database: [size from claude-baton status]
+- LLM calls today: [usage.llm_calls_today from daily_summary response] ([N] auto-checkpoints + 1 EOD)
+- Database: [usage.db_size from daily_summary response]
 ```
-
-6.5. To populate the Baton Usage section, run `claude-baton status` and parse the output for DB size and counts. For today's auto-checkpoints, count checkpoints from the `list_checkpoints` MCP tool response where source is "auto".
 
 7. Confirm: "✅ EOD saved for [Project Name] — [DATE]. [N] commits today."

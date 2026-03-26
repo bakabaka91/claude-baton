@@ -13,9 +13,10 @@ import {
   getCheckpoint,
   getCheckpointsByDate,
   insertDailySummary,
+  countAll,
 } from "./store.js";
 import { callClaudeJson } from "./llm.js";
-import { normalizeProjectPath } from "./utils.js";
+import { formatSize, normalizeProjectPath } from "./utils.js";
 import { readFileSync, statSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -285,11 +286,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         insertDailySummary(db, projectPath, date, summaryResult, dbPath);
 
+        // Attach usage stats for cost transparency
+        const autoCheckpointsToday = checkpoints.filter(
+          (cp) => cp.source === "auto",
+        ).length;
+        const counts = countAll(db, projectPath);
+        const dbSizeBytes = statSync(dbPath).size;
+        const usage = {
+          llm_calls_today: autoCheckpointsToday + 1, // +1 for this EOD call
+          auto_checkpoints_today: autoCheckpointsToday,
+          total_llm_calls: counts.auto_checkpoints + counts.daily_summaries,
+          db_size: formatSize(dbSizeBytes),
+        };
+
         return {
           content: [
             {
               type: "text",
-              text: JSON.stringify(summaryResult, null, 2),
+              text: JSON.stringify({ ...summaryResult, usage }, null, 2),
             },
           ],
         };
