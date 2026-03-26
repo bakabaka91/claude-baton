@@ -41,4 +41,7 @@ Save session state before context loss.
 📍 State: [current_state summary]
 🎯 Next: [next_steps]
 📝 Uncommitted: [count] files
+
+📜 Commits this session:
+[git log --since="2 hours ago" output from step 2 — or "No commits this session" if empty]
 ```
