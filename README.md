@@ -46,6 +46,7 @@ Session 1                          Session 2
 - **📊 Diff intelligence** — Resume shows what changed since your last session (new commits, modified files, dependency changes)
 - **🧠 Decision memory** — Key decisions and their reasoning survive across sessions
 - **📋 EOD summaries** — Generate end-of-day reports from all sessions with `/memo-eod`
+- **💰 Cost transparency** — EOD shows daily LLM calls; `claude-baton status` shows all-time usage and DB size
 - **🔒 Fully local** — All data in a local SQLite database. No cloud, no API keys, no data leaves your machine.
 
 ## 🏗️ Claude Code vs Claude Code + Baton
@@ -202,7 +203,7 @@ fix: MCP server registration via claude mcp add
 
 ```bash
 claude-baton setup               # 🔧 one-time setup (MCP, hooks, commands)
-claude-baton status              # 📊 checkpoint counts, db size
+claude-baton status              # 📊 checkpoint counts, LLM calls, db size
 claude-baton projects            # 📁 list tracked projects
 claude-baton export [--project]  # 📤 export as JSON
 claude-baton import <file>       # 📥 import from JSON
