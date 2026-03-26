@@ -24,7 +24,7 @@ You're deep in a Claude Code session — 45 minutes in, multiple files changed, 
 
 ## ✨ The Solution
 
-claude-baton gives Claude Code **persistent memory across sessions**. One command saves what was built, what's next, and why — one command brings it back.
+claude-baton gives Claude Code **persistent memory across sessions**. One command saves what was built, what's next, and why — one command brings it back. Context compaction? A PreCompact hook auto-saves before anything is lost.
 
 ```
 Session 1                          Session 2
