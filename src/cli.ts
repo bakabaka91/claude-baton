@@ -569,10 +569,14 @@ export async function handleStatus(opts: { project?: string }): Promise<void> {
   console.log(`Database: ${dbPath} (${formatSize(dbSize)})`);
   console.log();
   console.log("Counts:");
-  console.log(`  checkpoints: ${counts.checkpoints} (${counts.checkpoints - counts.auto_checkpoints} manual, ${counts.auto_checkpoints} auto)`);
+  console.log(
+    `  checkpoints: ${counts.checkpoints} (${counts.checkpoints - counts.auto_checkpoints} manual, ${counts.auto_checkpoints} auto)`,
+  );
   console.log(`  daily_summaries: ${counts.daily_summaries}`);
   console.log();
-  console.log(`LLM calls (claude -p): ${llmCalls} (${counts.auto_checkpoints} auto-checkpoints + ${counts.daily_summaries} EOD summaries)`);
+  console.log(
+    `LLM calls (claude -p): ${llmCalls} (${counts.auto_checkpoints} auto-checkpoints + ${counts.daily_summaries} EOD summaries)`,
+  );
 }
 
 // --- Projects command ---
