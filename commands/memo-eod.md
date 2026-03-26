@@ -4,12 +4,12 @@ End-of-day summary combining git activity with stored checkpoints.
 
 1. Detect the project from the current working directory.
 
-2. Collect git activity for today by running:
-   - `git log --since="$(date '+%Y-%m-%d') 00:00:00" --until="$(date '+%Y-%m-%d') 23:59:59" --format="%h|||%s|||%ai|||%an" --all`
+2. Collect git activity for today by running (replace YYYY-MM-DD with today's actual date as a literal string — do NOT use $() command substitution):
+   - `git log --since="YYYY-MM-DD 00:00:00" --until="YYYY-MM-DD 23:59:59" --format="%h|||%s|||%ai|||%an" --all`
    - Parse and group commits by conventional commit prefix (feat/fix/chore/refactor/test/docs).
 
 3. Review changed files:
-   - `git diff --name-only HEAD~10 HEAD 2>/dev/null | head -30`
+   - `git diff --name-only HEAD~10 HEAD`
 
 4. Call the `daily_summary` MCP tool (defaults to today).
    This internally gathers checkpoints and sends them to Sonnet for synthesis, then stores the result.

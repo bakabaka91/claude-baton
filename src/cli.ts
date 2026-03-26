@@ -280,16 +280,21 @@ export async function handleSetup(): Promise<void> {
   }
 
   // Register allowed tools for frictionless slash commands (idempotent)
-  const BATON_TOOLS = [
+  // Bash patterns use legacy allowedTools (still works for Bash tools)
+  const BATON_BASH_TOOLS = [
     "Bash(git status*)",
     "Bash(git log*)",
     "Bash(git diff*)",
     "Bash(git branch*)",
+    "Bash(git -C *status*)",
+    "Bash(git -C *log*)",
+    "Bash(git -C *diff*)",
+    "Bash(git -C *branch*)",
     "Bash(node *claude-baton*)",
   ];
   const allowedTools = (settings.allowedTools ?? []) as string[];
   let toolsAdded = 0;
-  for (const tool of BATON_TOOLS) {
+  for (const tool of BATON_BASH_TOOLS) {
     if (!allowedTools.includes(tool)) {
       allowedTools.push(tool);
       toolsAdded++;
@@ -297,7 +302,31 @@ export async function handleSetup(): Promise<void> {
   }
   if (toolsAdded > 0) {
     settings.allowedTools = allowedTools;
-    console.error(`  Registered ${toolsAdded} allowed tools`);
+  }
+
+  // MCP tools use permissions.allow (required for MCP tool auto-approval)
+  const BATON_MCP_TOOLS = [
+    "mcp__claude-baton__save_checkpoint",
+    "mcp__claude-baton__get_checkpoint",
+    "mcp__claude-baton__list_checkpoints",
+    "mcp__claude-baton__daily_summary",
+  ];
+  const permissions = (settings.permissions ?? {}) as Record<string, unknown>;
+  const allowList = (permissions.allow ?? []) as string[];
+  let mcpToolsAdded = 0;
+  for (const tool of BATON_MCP_TOOLS) {
+    if (!allowList.includes(tool)) {
+      allowList.push(tool);
+      mcpToolsAdded++;
+    }
+  }
+  if (mcpToolsAdded > 0) {
+    permissions.allow = allowList;
+    settings.permissions = permissions;
+  }
+
+  if (toolsAdded + mcpToolsAdded > 0) {
+    console.error(`  Registered ${toolsAdded + mcpToolsAdded} allowed tools`);
   }
 
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
@@ -423,22 +452,61 @@ export async function handleUninstall(opts: {
         console.error("  Removed PreCompact hook");
       }
 
-      // Remove allowed tools
+      // Remove allowed tools (bash patterns)
       if (Array.isArray(settings.allowedTools)) {
-        const BATON_PATTERNS = [
+        const BATON_BASH_PATTERNS = [
           "Bash(git status*)",
           "Bash(git log*)",
           "Bash(git diff*)",
           "Bash(git branch*)",
+          "Bash(git -C *status*)",
+          "Bash(git -C *log*)",
+          "Bash(git -C *diff*)",
+          "Bash(git -C *branch*)",
           "Bash(node *claude-baton*)",
         ];
         settings.allowedTools = (settings.allowedTools as string[]).filter(
-          (t) => !BATON_PATTERNS.includes(t),
+          (t) => !BATON_BASH_PATTERNS.includes(t),
         );
         if ((settings.allowedTools as string[]).length === 0) {
           delete settings.allowedTools;
         }
         console.error("  Removed allowed tools");
+      }
+
+      // Remove MCP tool permissions
+      if (
+        settings.permissions &&
+        typeof settings.permissions === "object" &&
+        Array.isArray((settings.permissions as Record<string, unknown>).allow)
+      ) {
+        const perms = settings.permissions as Record<string, unknown>;
+        const BATON_MCP_PATTERNS = [
+          "mcp__claude-baton__save_checkpoint",
+          "mcp__claude-baton__get_checkpoint",
+          "mcp__claude-baton__list_checkpoints",
+          "mcp__claude-baton__daily_summary",
+        ];
+        perms.allow = (perms.allow as string[]).filter(
+          (t) => !BATON_MCP_PATTERNS.includes(t),
+        );
+        if ((perms.allow as string[]).length === 0) {
+          delete perms.allow;
+        }
+        if (Object.keys(perms).length === 0) {
+          delete settings.permissions;
+        }
+        console.error("  Removed MCP tool permissions");
+      }
+
+      // Clean up legacy MCP entries from allowedTools (from older versions)
+      if (Array.isArray(settings.allowedTools)) {
+        settings.allowedTools = (settings.allowedTools as string[]).filter(
+          (t) => !t.startsWith("mcp__claude-baton__"),
+        );
+        if ((settings.allowedTools as string[]).length === 0) {
+          delete settings.allowedTools;
+        }
       }
 
       writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
