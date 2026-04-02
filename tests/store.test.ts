@@ -14,6 +14,7 @@ import {
   getCheckpointsByDate,
   getAllCheckpoints,
   getAllDailySummaries,
+  getRecentCheckpoints,
 } from "../src/store.js";
 
 let db: Database;
@@ -370,5 +371,101 @@ describe("git_snapshot in checkpoints", () => {
     expect(cp!.branch).toBe("feature/auth");
     expect(cp!.uncommitted_files).toEqual(["M src/auth.ts", "?? src/new.ts"]);
     expect(cp!.git_snapshot).toBe("abc1234 feat: start");
+  });
+});
+
+describe("learnings field in checkpoints", () => {
+  it("stores and retrieves learnings as JSON array", () => {
+    const learnings = [
+      "User corrected: always run tests before committing",
+      "Assumed API returns array but it returns object",
+    ];
+    const id = insertCheckpoint(
+      db,
+      "/proj",
+      "sess-1",
+      "Working",
+      "Auth",
+      "Tests",
+      { learnings },
+    );
+    const cp = getCheckpoint(db, id);
+    expect(cp).not.toBeNull();
+    expect(cp!.learnings).toEqual(learnings);
+  });
+
+  it("defaults to empty array when learnings not provided", () => {
+    const id = insertCheckpoint(
+      db,
+      "/proj",
+      "sess-1",
+      "Working",
+      "Auth",
+      "Tests",
+    );
+    const cp = getCheckpoint(db, id);
+    expect(cp).not.toBeNull();
+    expect(cp!.learnings).toEqual([]);
+  });
+
+  it("handles empty learnings array", () => {
+    const id = insertCheckpoint(
+      db,
+      "/proj",
+      "sess-1",
+      "Working",
+      "Auth",
+      "Tests",
+      { learnings: [] },
+    );
+    const cp = getCheckpoint(db, id);
+    expect(cp!.learnings).toEqual([]);
+  });
+});
+
+describe("getRecentCheckpoints", () => {
+  it("returns most recent N checkpoints regardless of date", () => {
+    insertCheckpoint(db, "/proj", "s1", "State 1", "Built 1", "Next 1");
+    insertCheckpoint(db, "/proj", "s2", "State 2", "Built 2", "Next 2");
+    insertCheckpoint(db, "/proj", "s3", "State 3", "Built 3", "Next 3");
+
+    const recent = getRecentCheckpoints(db, "/proj", 2);
+    expect(recent).toHaveLength(2);
+    // Most recent first
+    expect(recent[0].session_id).toBe("s3");
+    expect(recent[1].session_id).toBe("s2");
+  });
+
+  it("respects project isolation", () => {
+    insertCheckpoint(db, "/proj-a", "s1", "State A", "Built A", "Next A");
+    insertCheckpoint(db, "/proj-b", "s2", "State B", "Built B", "Next B");
+    insertCheckpoint(db, "/proj-a", "s3", "State C", "Built C", "Next C");
+
+    const recent = getRecentCheckpoints(db, "/proj-a", 10);
+    expect(recent).toHaveLength(2);
+    expect(recent.every((cp) => cp.project_path === "/proj-a")).toBe(true);
+  });
+
+  it("returns all when limit exceeds count", () => {
+    insertCheckpoint(db, "/proj", "s1", "State 1", "Built 1", "Next 1");
+    insertCheckpoint(db, "/proj", "s2", "State 2", "Built 2", "Next 2");
+
+    const recent = getRecentCheckpoints(db, "/proj", 100);
+    expect(recent).toHaveLength(2);
+  });
+
+  it("returns empty when no checkpoints exist", () => {
+    const recent = getRecentCheckpoints(db, "/proj", 10);
+    expect(recent).toHaveLength(0);
+  });
+
+  it("includes learnings in returned checkpoints", () => {
+    const learnings = ["Test learning 1", "Test learning 2"];
+    insertCheckpoint(db, "/proj", "s1", "State", "Built", "Next", {
+      learnings,
+    });
+
+    const recent = getRecentCheckpoints(db, "/proj", 10);
+    expect(recent[0].learnings).toEqual(learnings);
   });
 });

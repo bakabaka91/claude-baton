@@ -21,6 +21,11 @@ Save session state before context loss.
    - **decisions**: key choices made and WHY
    - **blockers**: anything blocking progress
    - **plan_reference**: file path and section of the active plan document (e.g. "docs/v2-plan.md Phase 2 Step 3"), or omit if no plan is active
+   - **learnings**: review the conversation for corrections, failures, and wrong assumptions. For each, write a short actionable statement. Examples:
+     - "User corrected: always run tests before committing"
+     - "Assumed API returns array but it returns object"
+     - "Build failed because forgot to update imports after rename"
+     If nothing went wrong this session, use an empty array.
 
 5. Call the `save_checkpoint` MCP tool with all fields:
    - what_was_built
@@ -32,6 +37,7 @@ Save session state before context loss.
    - branch (from step 2)
    - uncommitted_files (array of lines from git status --short)
    - git_snapshot (from git log --oneline -10)
+   - learnings (array of strings from step 4)
 
 6. Print structured confirmation:
 

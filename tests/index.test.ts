@@ -14,6 +14,7 @@ import {
   getCheckpoint,
   getLatestCheckpoint,
   getCheckpointsByDate,
+  getRecentCheckpoints,
   insertDailySummary,
 } from "../src/store.js";
 
@@ -116,6 +117,26 @@ describe("save_checkpoint + get_checkpoint tool logic", () => {
     const cp = getCheckpoint(db, id1);
     expect(cp!.current_state).toBe("State A");
   });
+
+  it("saves and retrieves learnings array", () => {
+    const learnings = [
+      "User corrected: run tests first",
+      "Wrong assumption about return type",
+    ];
+    const id = insertCheckpoint(
+      db,
+      PROJECT,
+      "session-abc",
+      "Working on auth",
+      "Auth module",
+      "Add tests",
+      { learnings },
+    );
+
+    const cp = getCheckpoint(db, id);
+    expect(cp).not.toBeNull();
+    expect(cp!.learnings).toEqual(learnings);
+  });
 });
 
 // =========================================================================
@@ -159,6 +180,48 @@ describe("list_checkpoints tool logic", () => {
 
     const cps = getCheckpointsByDate(db, PROJECT, "2026-03-22");
     expect(cps).toHaveLength(0);
+  });
+});
+
+// =========================================================================
+// list_checkpoints with limit (no date)
+// =========================================================================
+describe("list_checkpoints with limit (no date)", () => {
+  it("returns recent checkpoints when no date provided", () => {
+    insertCheckpoint(db, PROJECT, "s1", "State A", "Built A", "Next A");
+    insertCheckpoint(db, PROJECT, "s2", "State B", "Built B", "Next B");
+    insertCheckpoint(db, PROJECT, "s3", "State C", "Built C", "Next C");
+
+    const cps = getRecentCheckpoints(db, PROJECT, 2);
+    const summary = cps.map((cp) => ({
+      id: cp.id,
+      created_at: cp.created_at,
+      what_was_built: cp.what_was_built,
+      branch: cp.branch,
+      current_state: cp.current_state,
+      decisions_made: cp.decisions_made,
+      learnings: cp.learnings,
+    }));
+
+    expect(summary).toHaveLength(2);
+    expect(summary[0].what_was_built).toBe("Built C");
+    expect(summary[1].what_was_built).toBe("Built B");
+  });
+
+  it("includes learnings in list_checkpoints summary", () => {
+    const learnings = ["Always check types first"];
+    insertCheckpoint(db, PROJECT, "s1", "State", "Built", "Next", {
+      learnings,
+    });
+
+    const cps = getRecentCheckpoints(db, PROJECT, 10);
+    const summary = cps.map((cp) => ({
+      id: cp.id,
+      learnings: cp.learnings,
+      decisions_made: cp.decisions_made,
+    }));
+
+    expect(summary[0].learnings).toEqual(learnings);
   });
 });
 

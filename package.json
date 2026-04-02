@@ -1,6 +1,6 @@
 {
   "name": "claude-baton",
-  "version": "2.1.5",
+  "version": "2.2.0",
   "description": "Session lifecycle management for Claude Code",
   "type": "module",
   "main": "dist/index.js",

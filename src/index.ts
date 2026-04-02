@@ -12,6 +12,7 @@ import {
   getLatestCheckpoint,
   getCheckpoint,
   getCheckpointsByDate,
+  getRecentCheckpoints,
   insertDailySummary,
   countAll,
 } from "./store.js";
@@ -108,6 +109,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             description:
               "Reference to active plan document and section, e.g. 'docs/plan.md Phase 2 Step 3'",
           },
+          learnings: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Actionable learnings from the session — corrections, wrong assumptions, failed approaches",
+          },
           source: {
             type: "string",
             enum: ["manual", "auto"],
@@ -141,13 +148,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "list_checkpoints",
-      description: "List all checkpoints for a date",
+      description: "List checkpoints by date or most recent",
       inputSchema: {
         type: "object" as const,
         properties: {
           date: {
             type: "string",
-            description: "YYYY-MM-DD (defaults to today)",
+            description:
+              "YYYY-MM-DD — returns checkpoints for this date. If omitted, returns most recent across all dates.",
+          },
+          limit: {
+            type: "number",
+            description:
+              "Max checkpoints to return (default 10). Used when date is omitted.",
           },
           project: {
             type: "string",
@@ -213,6 +226,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             uncommittedFiles: a?.uncommitted_files as string[] | undefined,
             gitSnapshot: a?.git_snapshot as string | undefined,
             planReference: a?.plan_reference as string | undefined,
+            learnings: a?.learnings as string[] | undefined,
             source: (a?.source as "manual" | "auto" | undefined) ?? "manual",
           },
           dbPath,
@@ -233,15 +247,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "list_checkpoints": {
-        const cpDate =
-          (args?.date as string) ?? new Date().toISOString().slice(0, 10);
-        const cps = getCheckpointsByDate(db, projectPath, cpDate);
+        const cpDate = args?.date as string | undefined;
+        const limit = (args?.limit as number) ?? 10;
+        const cps = cpDate
+          ? getCheckpointsByDate(db, projectPath, cpDate)
+          : getRecentCheckpoints(db, projectPath, limit);
         const summary = cps.map((cp) => ({
           id: cp.id,
           created_at: cp.created_at,
           what_was_built: cp.what_was_built,
           branch: cp.branch,
           current_state: cp.current_state,
+          decisions_made: cp.decisions_made,
+          learnings: cp.learnings,
         }));
         return {
           content: [{ type: "text", text: JSON.stringify(summary, null, 2) }],

@@ -91,6 +91,14 @@ export function initSchema(db: Database): void {
     const msg = e instanceof Error ? e.message : "";
     if (!msg.includes("duplicate column")) throw e;
   }
+
+  // Migration: add learnings column for existing databases
+  try {
+    db.exec("ALTER TABLE checkpoints ADD COLUMN learnings TEXT DEFAULT '[]'");
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    if (!msg.includes("duplicate column")) throw e;
+  }
 }
 
 // --- Checkpoints CRUD ---
@@ -110,13 +118,14 @@ export function insertCheckpoint(
     gitSnapshot?: string;
     planReference?: string;
     source?: "manual" | "auto";
+    learnings?: string[];
   },
   dbPath?: string,
 ): string {
   const id = crypto.randomUUID();
   db.run(
-    `INSERT INTO checkpoints (id, project_path, session_id, branch, current_state, what_was_built, next_steps, decisions_made, blockers, uncommitted_files, git_snapshot, plan_reference, source, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO checkpoints (id, project_path, session_id, branch, current_state, what_was_built, next_steps, decisions_made, blockers, uncommitted_files, git_snapshot, plan_reference, source, learnings, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       projectPath,
@@ -131,6 +140,7 @@ export function insertCheckpoint(
       opts?.gitSnapshot ?? null,
       opts?.planReference ?? null,
       opts?.source ?? "manual",
+      JSON.stringify(opts?.learnings ?? []),
       new Date().toISOString(),
     ],
   );
@@ -167,6 +177,7 @@ function parseCheckpointRow(row: Record<string, unknown>): Checkpoint {
     uncommitted_files: JSON.parse(row.uncommitted_files as string),
     git_snapshot: (row.git_snapshot as string | null) ?? null,
     plan_reference: (row.plan_reference as string | null) ?? null,
+    learnings: JSON.parse((row.learnings as string) ?? "[]"),
     source: (row.source as string | null) ?? "manual",
   } as Checkpoint;
 }
@@ -184,6 +195,23 @@ export function getCheckpointsByDate(
     "SELECT * FROM checkpoints WHERE project_path = ? AND created_at >= ? AND created_at <= ? ORDER BY created_at ASC",
   );
   stmt.bind([projectPath, startUtc, endUtc]);
+  const results: Checkpoint[] = [];
+  while (stmt.step()) {
+    results.push(parseCheckpointRow(stmt.getAsObject()));
+  }
+  stmt.free();
+  return results;
+}
+
+export function getRecentCheckpoints(
+  db: Database,
+  projectPath: string,
+  limit: number = 10,
+): Checkpoint[] {
+  const stmt = db.prepare(
+    "SELECT * FROM checkpoints WHERE project_path = ? ORDER BY created_at DESC, rowid DESC LIMIT ?",
+  );
+  stmt.bind([projectPath, limit]);
   const results: Checkpoint[] = [];
   while (stmt.step()) {
     results.push(parseCheckpointRow(stmt.getAsObject()));
