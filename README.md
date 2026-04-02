@@ -87,6 +87,15 @@ npm install -g claude-baton
 claude-baton setup
 ```
 
+### Upgrading
+
+```bash
+npm install -g claude-baton@latest
+claude-baton setup                    # re-registers MCP server with new version
+```
+
+You must run `claude-baton setup` after upgrading — the MCP server runs as a long-lived process inside Claude Code, so it won't pick up the new version until re-registered.
+
 Start a new Claude Code session and you're ready to go:
 
 ```
@@ -183,21 +192,24 @@ fix: MCP server registration via claude mcp add
 
 ### The checkpoint lifecycle
 
-1. **💾 Checkpoint** — Captures what you built, current state, next steps, decisions, blockers, and git context (branch, uncommitted files, recent commits)
+1. **💾 Checkpoint** — Captures what you built, current state, next steps, decisions, blockers, learnings (corrections, wrong assumptions, failed approaches), and git context (branch, uncommitted files, recent commits)
 
-2. **🪝 Auto-checkpoint** — Before context compaction, the PreCompact hook reads the transcript, fetches the previous checkpoint for continuity, and uses `claude -p --model sonnet` to extract a structured checkpoint automatically
+2. **🪝 Auto-checkpoint** — Before context compaction, the PreCompact hook reads the transcript, fetches the previous checkpoint for continuity, and uses `claude -p --model sonnet` to extract a structured checkpoint automatically — including learnings from the session
 
 3. **🔄 Resume** — Fetches the latest checkpoint, compares current git state vs checkpoint state, computes what changed (new commits, file diffs, dependency changes), and presents a structured handover briefing
 
 4. **📊 EOD Summary** — Synthesizes all checkpoints from the day into a daily summary: what was built, decisions made, blockers, and next steps
+
+5. **🔄 Retro** — Analyzes recent checkpoints to find recurring learnings, cross-references with existing memory and CLAUDE.md, checks git history for correction patterns, and proposes actionable updates to your project's memory files and rules
 
 ## 📋 Slash Commands
 
 | Command | Description |
 |---------|-------------|
 | `/memo-resume` | 🔄 Restore context from last checkpoint — run this at session start |
-| `/memo-checkpoint` | 💾 Save session state with git context — safe to `/compact` after |
+| `/memo-checkpoint` | 💾 Save session state with git context and learnings — safe to `/compact` after |
 | `/memo-eod` | 📊 End-of-day summary combining all sessions |
+| `/memo-retro` | 🔄 Analyze checkpoint history, surface recurring learnings, propose memory/CLAUDE.md updates |
 
 ## 🛠️ CLI Commands
 
@@ -218,9 +230,9 @@ For automation and advanced use cases, claude-baton exposes 4 MCP tools:
 
 | Tool | Description |
 |------|-------------|
-| `save_checkpoint` | Save session state (what was built, current state, next steps, git context) |
+| `save_checkpoint` | Save session state (what was built, current state, next steps, learnings, git context) |
 | `get_checkpoint` | Retrieve a checkpoint by ID, or the latest for the project |
-| `list_checkpoints` | List all checkpoints for a date |
+| `list_checkpoints` | List checkpoints by date or most recent (supports `limit` param) |
 | `daily_summary` | Generate EOD summary from the day's checkpoints |
 
 ## 🤔 Why Not Just...
@@ -269,7 +281,7 @@ git clone https://github.com/bakabaka91/claude-baton.git
 cd claude-baton
 npm install
 npm run build
-npm test            # 98 tests
+npm test            # 109 tests
 ```
 
 ## 🗑️ Uninstall

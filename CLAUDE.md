@@ -19,7 +19,7 @@ npm run dev          # start MCP server (stdio)
 - `src/cli.ts` — CLI commands (setup, status, export, import, reset) + auto-checkpoint handler
 - `src/utils.ts` — Utility helpers
 - `prompts/` — Auto-checkpoint, daily summary prompt templates
-- `commands/` — Slash command files (memo-checkpoint, memo-resume, memo-eod)
+- `commands/` — Slash command files (memo-checkpoint, memo-resume, memo-eod, memo-retro)
 - `tests/` — Test suite
 - `bin/claude-baton.js` — CLI entry point
 
@@ -66,9 +66,10 @@ Installed to `~/.claude/commands/` during `claude-baton setup`.
 
 | Command | Purpose |
 |---|---|
-| `/memo-checkpoint` | Save session state with git context before /compact or /clear |
+| `/memo-checkpoint` | Save session state with git context and learnings before /compact or /clear |
 | `/memo-resume` | Restore context from last checkpoint at session start |
 | `/memo-eod` | End-of-day summary combining git activity with stored data |
+| `/memo-retro` | Analyze checkpoint history, surface recurring learnings, propose memory updates |
 
 ## Releasing & versioning
 
@@ -89,4 +90,4 @@ git push && git push --tags   # push commit + tag to GitHub
 - Use `npm version` to bump — never edit version in package.json manually
 
 ## Current state
-v2.1.5 session lifecycle manager. 4 MCP tools, 3 slash commands, PreCompact auto-checkpoint hook, cost transparency. Published on npm.
+v2.2.0 session lifecycle manager. 4 MCP tools, 4 slash commands, PreCompact auto-checkpoint hook, learnings capture, retro analysis, cost transparency. Published on npm.
