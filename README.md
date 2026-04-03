@@ -11,6 +11,10 @@
 
 ---
 
+<p align="center">
+  <img src="assets/demo.gif" alt="claude-baton demo" width="700">
+</p>
+
 ## 😤 The Problem
 
 You're deep in a Claude Code session — 45 minutes in, multiple files changed, complex decisions made. Then:
