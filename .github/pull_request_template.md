@@ -9,7 +9,7 @@ What does this PR do and why?
 ## Testing
 
 - [ ] `npm run build` passes
-- [ ] `npm test` passes (286+ tests)
+- [ ] `npm test` passes
 - [ ] `npm run format:check` passes
 - [ ] New tests added for new functionality
 

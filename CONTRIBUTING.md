@@ -19,7 +19,7 @@ npm test
 3. Run all checks before pushing:
    ```bash
    npm run build          # must compile
-   npm test               # must pass (286+ tests)
+   npm test               # must pass
    npm run format:check   # must pass
    ```
 4. Open a pull request against `main`
@@ -30,7 +30,7 @@ npm test
 
 These are non-negotiable project rules:
 
-- **4 dependencies max** — `@modelcontextprotocol/sdk`, `sql.js`, `zod`, `commander`
+- **3 dependencies max** — `@modelcontextprotocol/sdk`, `sql.js`, `commander`
 - **No API keys** — all LLM calls via `claude -p`
 - **sql.js only** — no native SQLite bindings
 - **stdio transport** — standard MCP, not SSE
